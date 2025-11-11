@@ -1,0 +1,220 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Georgia:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Accessibility and focus management */
+:root {
+  --focus-ring-color: #3b82f6;
+  --focus-ring-offset: 2px;
+}
+
+/* High contrast focus indicators */
+*:focus {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+*:focus:not(:focus-visible) {
+  outline: none;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: var(--focus-ring-offset);
+}
+
+/* Screen reader only class */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 1rem;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+  border: 2px solid var(--focus-ring-color);
+  border-radius: 0.25rem;
+  background: var(--focus-ring-color);
+  color: white;
+  z-index: 9999;
+}
+
+/* Custom styles below */
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  color: #1f2937; /* Better contrast */
+  background: #f8fafc;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: #1f2937; /* Better contrast */
+  background: #f8fafc;
+}
+
+/* Dark mode styles */
+.dark {
+  color: #f9fafb;
+  background: #111827;
+}
+
+.dark body {
+  color: #f9fafb;
+  background: #111827;
+}
+
+h1, .atlantic-heading {
+  font-family: 'Georgia', 'Times New Roman', Times, serif;
+  font-size: 2.5rem;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  color: #1e3a8a; /* Better contrast */
+  margin-bottom: 0.5em;
+}
+
+.dark h1, .dark .atlantic-heading {
+  color: #dbeafe; /* Light blue for dark mode */
+}
+
+h2 {
+  font-family: 'Georgia', 'Times New Roman', Times, serif;
+  font-size: 2rem;
+  font-weight: 700;
+  font-style: italic;
+  color: #1e3a8a; /* Better contrast */
+  margin-bottom: 0.4em;
+}
+
+.dark h2 {
+  color: #dbeafe;
+}
+
+h3, h4, h5, h6 {
+  font-family: 'Georgia', 'Times New Roman', Times, serif;
+  font-weight: 700;
+  color: #1e3a8a; /* Better contrast */
+}
+
+.dark h3, .dark h4, .dark h5, .dark h6 {
+  color: #dbeafe;
+}
+
+.table-heading, .section-title {
+  font-family: 'Georgia', 'Times New Roman', Times, serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e3a8a; /* Better contrast */
+  margin-bottom: 0.3em;
+}
+
+.dark .table-heading, .dark .section-title {
+  color: #dbeafe;
+}
+
+.table-body, .body-text {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 1.05rem;
+  color: #1f2937; /* Better contrast */
+}
+
+.dark .table-body, .dark .body-text {
+  color: #f9fafb;
+}
+
+/* Utility for Atlantic-style logo */
+.atlantic-logo {
+  font-family: 'Georgia', 'Times New Roman', Times, serif;
+  font-size: 2.8rem;
+  font-weight: 700;
+  font-style: italic;
+  color: #1e3a8a; /* Better contrast */
+  letter-spacing: 0.04em;
+}
+
+.dark .atlantic-logo {
+  color: #dbeafe;
+}
+
+/* Button accessibility improvements */
+button {
+  transition: all 0.2s ease-in-out;
+}
+
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Form field accessibility */
+input, select, textarea {
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: var(--focus-ring-color);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* High contrast error states */
+.error {
+  color: #dc2626; /* Red-600 for better contrast */
+  border-color: #dc2626;
+}
+
+.dark .error {
+  color: #fca5a5; /* Red-300 for dark mode */
+  border-color: #fca5a5;
+}
+
+/* Success states */
+.success {
+  color: #059669; /* Green-600 for better contrast */
+  border-color: #059669;
+}
+
+.dark .success {
+  color: #6ee7b7; /* Green-300 for dark mode */
+  border-color: #6ee7b7;
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  button:hover {
+    transform: none;
+  }
+}
