@@ -75,3 +75,6 @@ describe('CustomeRegistry', () => {
         expect(result.toString()).toContain('mock-compress-buffer');
     });
 });
+
+
+HHHHHH
