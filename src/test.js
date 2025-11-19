@@ -1,80 +1,94 @@
-import { CustomeRegistry } from '../producer/event/registry';
-import * as zlib from 'zlib';
-import { promisify } from 'util';
-import * as avro from 'avsc';
+import { v4 as uuid, parse as uuidParse } from "uuid";
+import * as zlib from "zlib";
+import { promisify } from "util";
+import * as avro from "avsc";
 
-// ---- MOCKS ----
+export interface EncodeProps {
+    compress: boolean;
+}
 
-// mock deflate (callback API)
-const mockDeflate = jest.fn((buf, cb) => {
-    cb(null, Buffer.from('mock-compress-buffer'));
-});
+// Convert callback API → Promise API
+const deflateAsync = promisify(zlib.deflate);
 
-// mock zlib module
-jest.mock('zlib', () => ({
-    deflate: jest.fn((buf, callback) => callback(null, Buffer.from('mock-compress-buffer')))
-}));
+export class CustomeRegistry {
+    public schemaDefinition: any;
 
-// mock avsc module
-jest.mock('avsc', () => ({
-    Type: {
-        forSchema: jest.fn(() => ({
-            toBuffer: jest.fn(() => Buffer.from('mock-avro-buffer'))
-        }))
+    constructor(schemaDefinition: any) {
+        this.schemaDefinition = schemaDefinition;
     }
-}));
 
-describe('CustomeRegistry', () => {
-    let customeRegistry: CustomeRegistry;
-    let mockSchemaDef: string;
+    // Compression Flags
+    static COMPRESSION_DEFAULT = 0;
+    static COMPRESSION_ZLIB = 5;
 
-    beforeEach(() => {
-        // mock Avro schema JSON
-        mockSchemaDef = JSON.stringify({
-            name: 'SampleSchema',
-            type: 'record',
-            fields: [{ name: 'id', type: 'string' }]
-        });
+    // Message Header Version
+    static HEADER_VERSION = 3;
 
-        customeRegistry = new CustomeRegistry(mockSchemaDef);
-        jest.clearAllMocks();
-    });
+    // Prebuilt header byte buffers
+    private static HEADER_VERSION_BYTE = CustomeRegistry.initByteBuffer(
+        CustomeRegistry.HEADER_VERSION
+    );
 
-    it('should encode data with NO compression', async () => {
-        const schemaId = 'de005f74-5163-4358-8cbb-0de4c21528bc';
-        const data = { id: '123' };
+    private static COMPRESSION_DEFAULT_BYTE = CustomeRegistry.initByteBuffer(
+        CustomeRegistry.COMPRESSION_DEFAULT
+    );
 
-        const result = await customeRegistry.encode(schemaId, data, { compress: false });
+    private static COMPRESSION_ZLIB_BYTE = CustomeRegistry.initByteBuffer(
+        CustomeRegistry.COMPRESSION_ZLIB
+    );
 
-        // Avro schema should be used
-        expect(avro.Type.forSchema).toHaveBeenCalledWith(JSON.parse(mockSchemaDef));
+    private static initByteBuffer(value: number): Buffer {
+        return Buffer.from([value]);
+    }
 
-        // Should return a Buffer
-        expect(result).toBeInstanceOf(Buffer);
+    private UUIDStringToByteArray(id: string): Uint8Array {
+        return new Uint8Array(uuidParse(id));
+    }
 
-        // Should contain mocked avro buffer
-        expect(result.toString()).toContain('mock-avro-buffer');
+    async encode(glueSchemaId: string, object: any, props?: EncodeProps): Promise<Buffer> {
+        //
+        // Step 1: Build Avro schema & serialize data
+        //
+        const schema = avro.Type.forSchema(JSON.parse(this.schemaDefinition));
+        const buf = schema.toBuffer(object);
 
-        // Should NOT call deflate
-        expect(zlib.deflate).not.toHaveBeenCalled();
-    });
+        //
+        // Step 2: Select compression
+        //
+        const ZLIB_COMPRESS_FUNC = async (b: Buffer): Promise<Buffer> => {
+            return deflateAsync(b); // native promises
+        };
 
-    it('should encode data WITH compression', async () => {
-        const schemaId = 'de005f74-5163-4358-8cbb-0de4c21528bc';
-        const data = { id: '123' };
+        const NO_COMPRESS_FUNC = async (b: Buffer): Promise<Buffer> => b;
 
-        const result = await customeRegistry.encode(schemaId, data, { compress: true });
+        let compressionFunc = ZLIB_COMPRESS_FUNC;
+        let compressionByte = CustomeRegistry.COMPRESSION_ZLIB_BYTE;
 
-        // deflate should be called
-        expect(zlib.deflate).toHaveBeenCalled();
+        if (props && !props.compress) {
+            compressionFunc = NO_COMPRESS_FUNC;
+            compressionByte = CustomeRegistry.COMPRESSION_DEFAULT_BYTE;
+        }
 
-        // Should return a Buffer
-        expect(result).toBeInstanceOf(Buffer);
+        //
+        // Step 3: Apply compression
+        //
+        const compressedBuf = await compressionFunc(buf);
 
-        // Should contain mocked compression output
-        expect(result.toString()).toContain('mock-compress-buffer');
-    });
-});
+        //
+        // Step 4: Add schema ID (UUID → 16 bytes)
+        //
+        const schemaIdBytes = this.UUIDStringToByteArray(glueSchemaId);
 
+        //
+        // Step 5: Build final payload
+        //
+        const output = Buffer.concat([
+            CustomeRegistry.HEADER_VERSION_BYTE, // 1 byte
+            compressionByte,                     // 1 byte
+            Buffer.from(schemaIdBytes),          // 16 bytes UUID
+            compressedBuf                        // remaining compressed Avro
+        ]);
 
-HHHHHH
+        return output;
+    }
+}
