@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../hooks/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const ProtectedRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -16,10 +16,8 @@ const ProtectedRoute = ({ children }) => {
   }
 
   if (!user) {
-    // SignIn functionality commented out - allow access for now
-    // return <Navigate to="/signin" state={{ from: location }} replace />;
-    // Allow access without authentication for now
-    return children;
+    // Redirect to signin if not authenticated
+    return <Navigate to="/signin" state={{ from: location }} replace />;
   }
 
   return children;

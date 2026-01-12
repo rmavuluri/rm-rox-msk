@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Get the backend URL from environment variables or use default
 // Backend (kafka-admin-client-nodejs) runs on port 3000
-const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:3000';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
 // Create axios instance with base configuration
 const api = axios.create({
@@ -15,10 +15,17 @@ const api = axios.create({
 
 // Request interceptor
 api.interceptors.request.use(
-  (config) => {
-    // You can add auth tokens here if needed
+  async (config) => {
+    // Get token from local storage
+    const accessToken = localStorage.getItem('access_token');
+
+    if (accessToken) {
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
     return config;
   },
+
+
   (error) => {
     return Promise.reject(error);
   }

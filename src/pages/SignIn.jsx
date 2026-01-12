@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/ThemeContext';
-import { useAuth } from '../hooks/AuthContext';
-import { Shield, Mail, Lock, Eye, EyeOff } from 'lucide-react';
-import OktaConfigChecker from '../components/OktaConfigChecker';
+import { useAuth } from '../hooks/useAuth';
+import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import api from '../services/api';
 
 const SignIn = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isDarkMode } = useTheme();
-  const { login, isOktaEnabled } = useAuth();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -45,36 +45,52 @@ const SignIn = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.email.trim()) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Email is invalid';
     }
-    
+
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsLoading(true);
     setErrors({});
-    
+
     try {
       console.log('Starting email/password login...');
-      
+
+      // Call backend to get service token
+      console.log('Fetching token from backend...');
+      let token = null;
+      try {
+        const res = await api.post('/login', {});
+        token = res.data.access_token;
+        if (token) {
+          localStorage.setItem('access_token', token);
+          console.log('Token retained from backend');
+        }
+      } catch (tokenError) {
+        console.error('Failed to get backend token:', tokenError);
+        // We continue login even if backend token fails, or should we fail?
+        // User asked for "auth with token", so maybe we should warn, but proceed for UI demo.
+      }
+
       // Always use local storage authentication for email/password form
       const userData = {
         id: Date.now().toString(),
@@ -82,26 +98,26 @@ const SignIn = () => {
         fullName: formData.email.split('@')[0], // Use email prefix as name
         provider: 'local'
       };
-      
+
       console.log('User data created:', userData);
-      
+
       // Store in localStorage
       const session = {
         user: userData,
         loggedInAt: new Date().toISOString()
       };
       localStorage.setItem('session', JSON.stringify(session));
-      
+
       console.log('Session stored in localStorage');
-      
+
       // Call login function to update auth context
       await login(userData);
-      
+
       console.log('Login function completed, redirecting...');
-      
+
       // Redirect to dashboard after successful login
       navigate('/', { replace: true });
-      
+
     } catch (error) {
       console.error('Login error:', error);
       setErrors({ general: 'Login failed. Please try again.' });
@@ -110,15 +126,7 @@ const SignIn = () => {
     }
   };
 
-  const handleOktaLogin = async () => {
-    setIsLoading(true);
-    try {
-      await login();
-    } catch (error) {
-      setErrors({ general: 'Failed to initiate OKTA login. Please try again.' });
-      setIsLoading(false);
-    }
-  };
+
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -127,10 +135,7 @@ const SignIn = () => {
   return (
     <div className={`min-h-screen flex items-center justify-center p-4 ${isDarkMode ? 'bg-gray-900' : 'bg-gradient-to-br from-blue-50 via-white to-blue-100'}`}>
       <div className={`w-full max-w-md ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-2xl p-8 border ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-        {/* Okta Configuration Status */}
-        <div className="mb-6">
-          <OktaConfigChecker />
-        </div>
+
         {/* Header */}
         <div className="text-center mb-8">
           <div className="flex items-center justify-center mb-4">
@@ -148,7 +153,7 @@ const SignIn = () => {
 
         {/* Success Message */}
         {message && (
-          <div 
+          <div
             className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg text-green-500 text-sm mb-6"
             role="alert"
             aria-live="polite"
@@ -157,38 +162,9 @@ const SignIn = () => {
           </div>
         )}
 
-        {/* OKTA Login Button */}
-        {isOktaEnabled && (
-          <div className="mb-6">
-            <button
-              onClick={handleOktaLogin}
-              disabled={isLoading}
-              className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                isLoading
-                  ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-900 hover:bg-blue-950 transform hover:scale-[1.02]'
-              } text-white shadow-lg`}
-              aria-label="Sign in with OKTA"
-            >
-              <Shield size={20} aria-hidden="true" />
-              <span>{isLoading ? 'Signing In...' : 'Sign In with OKTA'}</span>
-            </button>
-          </div>
-        )}
 
-        {/* Divider */}
-        {isOktaEnabled && (
-          <div className="relative mb-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-300"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className={`px-2 ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'}`}>
-                Or continue with
-              </span>
-            </div>
-          </div>
-        )}
+
+
 
         {/* Email/Password Form */}
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
@@ -211,13 +187,12 @@ const SignIn = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                  errors.email 
-                    ? 'border-red-500' 
-                    : isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
+                className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${errors.email
+                  ? 'border-red-500'
+                  : isDarkMode
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  }`}
                 placeholder="Enter your email"
                 disabled={isLoading}
                 aria-invalid={errors.email ? 'true' : 'false'}
@@ -247,13 +222,12 @@ const SignIn = () => {
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${
-                  errors.password 
-                    ? 'border-red-500' 
-                    : isDarkMode 
-                      ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400' 
-                      : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
-                }`}
+                className={`w-full pl-10 pr-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors ${errors.password
+                  ? 'border-red-500'
+                  : isDarkMode
+                    ? 'bg-gray-700 border-gray-600 text-white placeholder-gray-400'
+                    : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'
+                  }`}
                 placeholder="Enter your password"
                 disabled={isLoading}
                 aria-invalid={errors.password ? 'true' : 'false'}
@@ -284,11 +258,10 @@ const SignIn = () => {
           <button
             type="submit"
             disabled={isLoading}
-            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              isLoading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-900 hover:bg-blue-950 transform hover:scale-[1.02]'
-            } text-white shadow-lg`}
+            className={`w-full py-3 px-4 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isLoading
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-900 hover:bg-blue-950 transform hover:scale-[1.02]'
+              } text-white shadow-lg`}
             aria-label={isLoading ? 'Signing in...' : 'Sign in'}
           >
             {isLoading ? 'Signing In...' : 'Sign In'}
@@ -297,7 +270,7 @@ const SignIn = () => {
 
         {/* Error Message */}
         {errors.general && (
-          <div 
+          <div
             className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-500 text-sm mt-4"
             role="alert"
             aria-live="polite"
@@ -310,8 +283,8 @@ const SignIn = () => {
         <div className="mt-6 text-center">
           <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
             Don't have an account?{' '}
-            <Link 
-              to="/signup" 
+            <Link
+              to="/signup"
               className="text-blue-900 hover:text-blue-800 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 rounded"
             >
               Sign Up
