@@ -69,7 +69,7 @@ const Sidebar = ({ expanded, setExpanded, onToggle }) => {
     <>
       <aside
         id="sidebar"
-        className={`h-screen transition-all duration-300 ease-out ${expanded ? 'w-64' : 'w-20'} flex flex-col shadow-xl border-r relative ${isDarkMode
+        className={`self-stretch transition-all duration-300 ease-out ${expanded ? 'w-64' : 'w-20'} flex flex-col shadow-xl border-r relative ${isDarkMode
             ? 'bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white border-gray-700'
             : 'bg-gradient-to-b from-white via-gray-50 to-white text-gray-800 border-gray-200'
           }`}

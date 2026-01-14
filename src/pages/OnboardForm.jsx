@@ -2,14 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/ThemeContext';
 import api from '../services/api';
-
-const onboardTypes = [
-  'Direct Producer',
-  'Direct Consumer',
-  'S3',
-  'SF',
-  'EB with Lambda',
-];
+import { X, ChevronDown } from 'lucide-react';
 
 const ENVIRONMENTS = ['DEV', 'QA', 'CAP', 'PSP', 'PROD'];
 
@@ -22,577 +15,794 @@ const OnboardForm = () => {
   const isEditMode = !!editData || !!editId;
 
   const [form, setForm] = useState({
-    id: editData?.id || Math.random().toString(36).slice(2),
-    lobName: editData?.lobName || '',
-    domain: editData?.domain || '',
-    onboardType: editData?.onboardType || '',
-    subDomain: editData?.subDomain || '',
-    volumeOfEvents: editData?.volumeOfEvents || '',
-    schemaName: editData?.schemaName || '',
+    intakeId: editData?.intakeId || '',
     topicName: editData?.topicName || '',
-    tentativeProdDate: editData?.tentativeProdDate || '',
-    canPerformPT: editData?.canPerformPT || false,
-    envARNs: editData?.envARNs || [],
-    notificationEmail: editData?.notificationEmail || '',
-    contactEmails: editData?.contactEmails || '',
-    createdAt: editData?.createdAt || new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    appId: editData?.appId || '',
+    roleARNs: editData?.roleARNs || [{ env: '', arn: '' }],
+    emailAddress: editData?.emailAddresses?.[0] || editData?.emailAddress || '',
+    teamName: editData?.teamName || '',
+    roleName: editData?.roleName || '',
+    roleNameOverride: editData?.roleNameOverride || false,
   });
+
+  const [teams, setTeams] = useState([]);
+  const [loadingTeams, setLoadingTeams] = useState(false);
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [loading, setLoading] = useState(false);
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
+  const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
 
-  // Helper to map backend fields to form fields
-  function mapBackendToForm(data) {
-    // Format date as yyyy-MM-dd for input type="date"
-    let date = data.tentative_prod_date || '';
-    if (date) {
-      const d = new Date(date);
-      if (!isNaN(d)) {
-        date = d.toISOString().slice(0, 10);
-      }
-    }
-    return {
-      id: data.id,
-      lobName: data.lob_name || '',
-      domain: data.domain || '',
-      onboardType: data.onboard_type || '',
-      subDomain: data.sub_domain || '',
-      volumeOfEvents: data.volume_of_events || '',
-      schemaName: data.schema_name || '',
-      topicName: Array.isArray(data.topic_name) ? data.topic_name : (typeof data.topic_name === 'string' && data.topic_name.startsWith('[') ? JSON.parse(data.topic_name) : data.topic_name || ''),
-      tentativeProdDate: date,
-      canPerformPT: data.can_perform_pt ?? false,
-      envARNs: data.env_arns || [],
-      notificationEmail: data.notification_email || '',
-      contactEmails: data.contact_emails || '',
-      createdAt: data.created_at || '',
-      updatedAt: data.updated_at || '',
-    };
-  }
-
-  // Fetch onboarding by ID if in edit mode and no editData
+  // Ensure at least one Role ARN row exists
   useEffect(() => {
-    if (isEditMode && (!editData || Object.keys(editData).length === 0)) {
-      // Try to get ID from navigation state or URL
-      let id = editId || location.state?.id || form.id;
-      if (!id && location.pathname.includes('/onboard')) {
-        const match = location.pathname.match(/onboard\/?(\w+)?/);
-        if (match && match[1]) id = match[1];
-      }
-      if (id) {
-        setLoading(true);
-        api.get(`/onboardings/${id}`)
-          .then(res => {
-            setForm(mapBackendToForm(res.data));
-          })
-          .catch(() => {
-            // Optionally show error
-          })
-          .finally(() => setLoading(false));
-      }
-    }
-    // eslint-disable-next-line
-  }, [editId]);
-
-  // Compute topic names for each env (returns array)
-  const getTopicNamesArray = () => {
-    const domain = form.domain.trim();
-    const subDomain = form.subDomain.trim();
-    if (!domain || !subDomain) return [];
-    // Only for envs selected
-    return form.envARNs
-      .filter(row => row.env)
-      .map(row => `${domain}-${subDomain}-${row.env.toLowerCase()}`);
-  };
-
-  // Compute schema names for each env
-  const getSchemaNames = () => {
-    const domain = form.domain.trim();
-    const subDomain = form.subDomain.trim();
-    if (!domain || !subDomain) return '';
-    // Only for envs selected
-    return form.envARNs
-      .filter(row => row.env)
-      .map(row => `ebeh-ob-${row.env.toLowerCase()}-${domain}-${subDomain}-schema`)
-      .join('\n');
-  };
-
-  // Ensure at least one row is present
-  React.useEffect(() => {
-    if (form.envARNs.length === 0) {
-      setForm((prev) => ({ ...prev, envARNs: [{ env: '', arn: '' }] }));
+    if (form.roleARNs.length === 0) {
+      setForm(prev => ({ ...prev, roleARNs: [{ env: '', arn: '' }] }));
     }
   }, []);
 
-  // Handle env/arn changes
-  const handleEnvArnChange = (idx, field, value) => {
-    setForm((prev) => {
-      const envARNs = prev.envARNs.map((row, i) =>
-        i === idx ? { ...row, [field]: value } : row
-      );
-      return { ...prev, envARNs };
-    });
-  };
+  // Fetch teams on component mount
+  useEffect(() => {
+    const fetchTeams = async () => {
+      setLoadingTeams(true);
+      try {
+        const res = await api.get('/teams');
+        const teamsData = res.data || [];
+        console.log('Teams fetched:', teamsData); // Debug log
+        setTeams(teamsData);
+        
+        // Auto-populate first team if no team is selected and not in edit mode
+        if (!isEditMode && teamsData.length > 0 && !form.teamName) {
+          const firstTeam = teamsData[0].name;
+          setForm(prev => {
+            const newForm = { ...prev, teamName: firstTeam };
+            // Auto-generate role name from team name
+            if (!prev.roleNameOverride) {
+              newForm.roleName = `role-${firstTeam.toLowerCase().replace(/\s+/g, '-')}`;
+            }
+            return newForm;
+          });
+        }
+      } catch (error) {
+        console.error('Failed to fetch teams:', error);
+        console.error('Error details:', error.response?.data); // Debug log
+        setTeams([]);
+      } finally {
+        setLoadingTeams(false);
+      }
+    };
+    fetchTeams();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Validate single field on blur
-  const validateField = (name, value) => {
-    if (!touched[name]) return; // Only validate if field has been touched
-    
-    const newErrors = { ...errors };
-    if (!value || value.trim() === '') {
-      newErrors[name] = `${name.charAt(0).toUpperCase() + name.slice(1)} is required.`;
-    } else {
-      delete newErrors[name];
+  // Auto-populate role name when team name changes (if override is not checked)
+  // This effect ensures role name updates whenever team name changes
+  useEffect(() => {
+    if (form.teamName && !form.roleNameOverride) {
+      // Generate role name from team name
+      const roleName = `role-${form.teamName.toLowerCase().replace(/\s+/g, '-')}`;
+      setForm(prev => ({ ...prev, roleName }));
     }
-    setErrors(newErrors);
-  };
+  }, [form.teamName, form.roleNameOverride]);
 
-  // Handle field blur
-  const handleBlur = (e) => {
-    const { name, value } = e.target;
-    // If domain or subDomain, lowercase the value in state
-    if (name === 'domain' || name === 'subDomain') {
-      const lowerValue = value.toLowerCase();
-      setForm(prev => ({ ...prev, [name]: lowerValue }));
-      setTouched(prev => ({ ...prev, [name]: true }));
-      validateField(name, lowerValue);
-    } else {
-      setTouched(prev => ({ ...prev, [name]: true }));
-      validateField(name, value);
-    }
-  };
-
+  // Handle field changes
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    
+    if (name === 'roleNameOverride') {
+      setForm(prev => {
+        const newForm = { ...prev, roleNameOverride: checked };
+        // When override is unchecked, regenerate role name from team name
+        if (!checked && prev.teamName) {
+          newForm.roleName = `role-${prev.teamName.toLowerCase().replace(/\s+/g, '-')}`;
+        }
+        return newForm;
+      });
+    } else if (name === 'teamName') {
+      // When team name changes, update role name if override is not checked
+      setForm(prev => {
+        const newForm = { ...prev, teamName: value };
+        if (!prev.roleNameOverride) {
+          newForm.roleName = `role-${value.toLowerCase().replace(/\s+/g, '-')}`;
+        }
+        return newForm;
+      });
+    } else {
+      setForm(prev => ({
+        ...prev,
+        [name]: type === 'checkbox' ? checked : value,
+      }));
+    }
+
     // Clear error when user starts typing
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: undefined }));
     }
   };
 
-  // Handle env/arn blur for validation
-  const handleEnvArnBlur = (idx) => {
-    const row = form.envARNs[idx];
+  // Handle blur for validation
+  const handleBlur = (e) => {
+    const { name, value } = e.target;
+    setTouched(prev => ({ ...prev, [name]: true }));
+    validateField(name, value);
+  };
+
+  // Filter teams based on search query
+  const filteredTeams = teams.filter(team =>
+    team.name.toLowerCase().includes(teamSearchQuery.toLowerCase())
+  );
+
+  // Handle team selection
+  const handleTeamSelect = (teamName) => {
+    setForm(prev => {
+      const newForm = { ...prev, teamName };
+      if (!prev.roleNameOverride) {
+        newForm.roleName = `role-${teamName.toLowerCase().replace(/\s+/g, '-')}`;
+      }
+      return newForm;
+    });
+    setTeamSearchQuery('');
+    setIsTeamDropdownOpen(false);
+    
+    // Clear error when team is selected
+    if (errors.teamName) {
+      setErrors(prev => ({ ...prev, teamName: undefined }));
+    }
+    setTouched(prev => ({ ...prev, teamName: true }));
+  };
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const target = event.target;
+      if (isTeamDropdownOpen && !target.closest('[data-team-dropdown]')) {
+        setIsTeamDropdownOpen(false);
+        setTeamSearchQuery('');
+      }
+    };
+
+    if (isTeamDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [isTeamDropdownOpen]);
+
+  // Validate single field
+  const validateField = (name, value) => {
     const newErrors = { ...errors };
     
-    // Mark as touched
-    if (!touched[`envArn_${idx}`]) {
-      setTouched(prev => ({ ...prev, [`envArn_${idx}`]: true }));
+    if (name === 'appId') {
+      if (!value || value.trim() === '') {
+        newErrors.appId = 'App Id is required.';
+      } else if (!/^\d+$/.test(value)) {
+        newErrors.appId = 'App Id must contain only numbers.';
+      } else {
+        delete newErrors.appId;
+      }
+    } else if (name === 'intakeId' || name === 'topicName' || name === 'teamName') {
+      if (!value || value.trim() === '') {
+        newErrors[name] = `${name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1')} is required.`;
+      } else {
+        delete newErrors[name];
+      }
+    } else if (name === 'emailAddress') {
+      if (!value || value.trim() === '') {
+        newErrors.emailAddress = 'Email Address is required.';
+      } else if (!isValidEmail(value.trim())) {
+        newErrors.emailAddress = 'Please enter a valid email address.';
+      } else {
+        delete newErrors.emailAddress;
+      }
+    } else if (name === 'roleName' && form.roleNameOverride) {
+      if (!value || value.trim() === '') {
+        newErrors.roleName = 'Role Name is required when override is enabled.';
+      } else {
+        delete newErrors.roleName;
+      }
     }
     
+    setErrors(newErrors);
+  };
+
+  // Handle Role ARN changes (environment and ARN)
+  const handleRoleARNChange = (index, field, value) => {
+    setForm(prev => {
+      const roleARNs = prev.roleARNs.map((row, i) =>
+        i === index ? { ...row, [field]: value } : row
+      );
+      return { ...prev, roleARNs };
+    });
+    
+    // Clear errors
+    if (errors.roleARNs || errors.roleARNsRows) {
+      const newErrors = { ...errors };
+      if (errors.roleARNsRows && errors.roleARNsRows[index]) {
+        delete newErrors.roleARNsRows[index];
+      }
+      if (errors.roleARNs) {
+        delete newErrors.roleARNs;
+      }
+      setErrors(newErrors);
+    }
+  };
+
+  // Handle Role ARN blur for validation and auto-add new row
+  const handleRoleARNBlur = (index) => {
+    const row = form.roleARNs[index];
+    const newErrors = { ...errors };
+    
     // Validate this row
-    if (touched[`envArn_${idx}`]) {
-      if (row.env && !row.arn) {
-        if (!newErrors.envARNsRows) newErrors.envARNsRows = {};
-        newErrors.envARNsRows[idx] = 'ARN is required for this environment.';
-      } else if (!row.env && row.arn) {
-        if (!newErrors.envARNsRows) newErrors.envARNsRows = {};
-        newErrors.envARNsRows[idx] = 'Please select an environment.';
-      } else {
-        if (newErrors.envARNsRows) {
-          delete newErrors.envARNsRows[idx];
-        }
+    if (row.env && !row.arn) {
+      if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
+      newErrors.roleARNsRows[index] = 'ARN is required for this environment.';
+    } else if (!row.env && row.arn) {
+      if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
+      newErrors.roleARNsRows[index] = 'Please select an environment.';
+    } else {
+      if (newErrors.roleARNsRows) {
+        delete newErrors.roleARNsRows[index];
       }
     }
     
     setErrors(newErrors);
     
-    // Add new row if both env and arn are filled
-    if (row.env && row.arn && idx === form.envARNs.length - 1) {
-      const usedEnvs = form.envARNs.map((r) => r.env).filter(Boolean);
+    // Add new row if both env and arn are filled and this is the last row
+    if (row.env && row.arn && index === form.roleARNs.length - 1) {
+      const usedEnvs = form.roleARNs.map((r) => r.env).filter(Boolean);
       if (usedEnvs.length < ENVIRONMENTS.length) {
-        setForm((prev) => ({
+        setForm(prev => ({
           ...prev,
-          envARNs: [...prev.envARNs, { env: '', arn: '' }],
+          roleARNs: [...prev.roleARNs, { env: '', arn: '' }],
         }));
       }
     }
   };
 
+  // Remove Role ARN row
+  const removeRoleARN = (index) => {
+    if (form.roleARNs.length > 1) {
+      setForm(prev => ({
+        ...prev,
+        roleARNs: prev.roleARNs.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+
+  // Validate email format
+  const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
+
+  // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Inline validation
+    
     const newErrors = {};
-    if (!form.lobName) newErrors.lobName = 'LOB Name is required.';
-    if (!form.domain) newErrors.domain = 'Domain is required.';
-    if (!form.onboardType) newErrors.onboardType = 'Onboard Type is required.';
-    if (!form.subDomain) newErrors.subDomain = 'Sub-Domain is required.';
-    if (!form.volumeOfEvents) newErrors.volumeOfEvents = 'Volume of Events is required.';
-    if (!form.tentativeProdDate) newErrors.tentativeProdDate = 'Tentative PROD Date is required.';
-    if (!form.notificationEmail) newErrors.notificationEmail = 'Notification Email is required.';
-    if (!form.contactEmails) newErrors.contactEmails = 'Contact Emails are required.';
-    // Validate envARNs: at least one, all filled, no duplicate envs
-    const filledEnvARNs = form.envARNs.filter((row) => row.env && row.arn);
-    if (filledEnvARNs.length === 0) {
-      newErrors.envARNs = 'Please enter at least one environment ARN.';
+    
+    // Validate required fields
+    if (!form.intakeId.trim()) {
+      newErrors.intakeId = 'Intake ID is required.';
+    }
+    if (!form.topicName.trim()) {
+      newErrors.topicName = 'Topic Name is required.';
+    }
+    if (!form.appId.trim()) {
+      newErrors.appId = 'App Id is required.';
+    } else if (!/^\d+$/.test(form.appId)) {
+      newErrors.appId = 'App Id must contain only numbers.';
+    }
+    if (!form.teamName) {
+      newErrors.teamName = 'Team Name is required.';
+    }
+    if (form.roleNameOverride && !form.roleName.trim()) {
+      newErrors.roleName = 'Role Name is required when override is enabled.';
+    }
+    
+    // Validate Role ARNs - at least one required, all filled, no duplicate envs
+    const filledRoleARNs = form.roleARNs.filter((row) => row.env && row.arn);
+    if (filledRoleARNs.length === 0) {
+      newErrors.roleARNs = 'Please enter at least one environment ARN.';
     } else {
-      form.envARNs.forEach((row, idx) => {
+      form.roleARNs.forEach((row, idx) => {
         if (row.env && !row.arn) {
-          if (!newErrors.envARNsRows) newErrors.envARNsRows = {};
-          newErrors.envARNsRows[idx] = 'ARN is required for this environment.';
+          if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
+          newErrors.roleARNsRows[idx] = 'ARN is required for this environment.';
         }
         if (!row.env && row.arn) {
-          if (!newErrors.envARNsRows) newErrors.envARNsRows = {};
-          newErrors.envARNsRows[idx] = 'Please select an environment.';
+          if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
+          newErrors.roleARNsRows[idx] = 'Please select an environment.';
         }
       });
     }
     // Duplicate env check
     const envSet = new Set();
-    for (const row of filledEnvARNs) {
+    for (const row of filledRoleARNs) {
       if (envSet.has(row.env)) {
-        newErrors.envARNs = 'Duplicate environment selected.';
+        newErrors.roleARNs = 'Duplicate environment selected.';
         break;
       }
       envSet.add(row.env);
     }
+    
+    // Validate Email Address - required and must be valid
+    if (!form.emailAddress || form.emailAddress.trim() === '') {
+      newErrors.emailAddress = 'Email Address is required.';
+    } else if (!isValidEmail(form.emailAddress.trim())) {
+      newErrors.emailAddress = 'Please enter a valid email address.';
+    }
+    
     setErrors(newErrors);
-    if (Object.keys(newErrors).length > 0) return;
-    // Save only filled envARNs
-    form.envARNs = filledEnvARNs;
-    form.topicName = getTopicNamesArray();
-    form.schemaName = getSchemaNames();
-    const isProducer = ['Direct Producer', 'EB with Lambda'].includes(form.onboardType);
+    
+    if (Object.keys(newErrors).length > 0) {
+      return;
+    }
+    
+    // Prepare data for submission - save only filled roleARNs
+    const submitData = {
+      intakeId: form.intakeId.trim(),
+      topicName: form.topicName.trim(),
+      appId: form.appId.trim(),
+      roleARNs: filledRoleARNs,
+      emailAddresses: [form.emailAddress.trim()],
+      teamName: form.teamName,
+      roleName: form.roleName.trim(),
+      roleNameOverride: form.roleNameOverride,
+    };
+    
+    setLoading(true);
     try {
-      if (isEditMode) {
-        await api.put(`/onboardings/${form.id}`, {
-          ...form,
-          envARNs: form.envARNs
-        });
-      } else {
-        await api.post('/onboardings', {
-          ...form,
-          envARNs: form.envARNs
-        });
+      // Call submit-intake API to log the request
+      console.log('Submitting intake form data:', submitData);
+      try {
+        const intakeResponse = await api.post('/submit-intake', submitData);
+        console.log('Intake submitted successfully:', intakeResponse.data);
+      } catch (intakeError) {
+        // Log error but don't fail the form submission
+        console.warn('Submit-intake API call failed (non-blocking):', intakeError);
       }
-      navigate(isProducer ? '/producers' : '/consumers');
-    } catch (err) {
-      alert('Failed to save onboarding: ' + (err.response?.data?.error || err.message));
+      
+      // Then save to onboardings
+      if (isEditMode) {
+        await api.put(`/onboardings/${editId || editData?.id}`, submitData);
+      } else {
+        await api.post('/onboardings', submitData);
+      }
+      navigate('/');
+    } catch (error) {
+      console.error('Failed to save onboarding:', error);
+      const errorMsg = error.response?.data?.detail || 
+                      error.response?.data?.message || 
+                      error.message || 
+                      'Failed to save onboarding';
+      alert(errorMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleCancel = () => navigate(-1);
 
-  if (loading) {
+  // Show full page loader when initially loading teams or submitting form
+  if (loadingTeams && teams.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center text-xl" role="status" aria-live="polite">
-        Loading...
+      <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-live="polite">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading form...</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 bg-gradient-to-br ${isDarkMode ? 'from-gray-950 via-gray-900 to-gray-800' : 'from-blue-50 via-white to-blue-100'}`}>
-      <div className={`w-full ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'} rounded-xl shadow-lg flex flex-col`}>
-        {/* Gradient Header */}
+    <div className="relative">
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" role="status" aria-live="polite">
+          <div className={`${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl p-8 shadow-2xl flex flex-col items-center`}>
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+            <p className={`text-lg font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+              Submitting form...
+            </p>
+            <p className={`text-sm mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Please wait while we process your request
+            </p>
+          </div>
+        </div>
+      )}
+
+      <div className={`w-full ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'} rounded-xl shadow-lg flex flex-col ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+        {/* Header */}
         <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-gray-900 to-gray-800' : 'border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100'} rounded-t-xl`}>
           <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-1`}>
             {isEditMode ? 'Edit Onboarding' : 'Onboarding Form'}
           </h1>
-          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mb-2`}>
-            Fill out the details below to onboard a new Producer or Consumer.
+          <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+            Fill out the details below to create a new onboarding request.
           </p>
         </div>
+
         <form onSubmit={handleSubmit} className="p-8 space-y-6" noValidate>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Intake ID */}
             <div>
-              <label htmlFor="lobName" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                LOB Name <span className="text-red-500" aria-label="required">*</span>
+              <label htmlFor="intakeId" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Intake ID <span className="text-red-500" aria-label="required">*</span>
               </label>
-              <input 
-                id="lobName"
-                name="lobName" 
-                value={form.lobName} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${errors.lobName ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.lobName ? 'true' : 'false'}
-                aria-describedby={errors.lobName ? 'lobName-error' : undefined}
+              <input
+                id="intakeId"
+                name="intakeId"
+                type="text"
+                value={form.intakeId}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isDarkMode
+                    ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                    : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                } ${errors.intakeId ? 'border-red-500' : ''}`}
+                aria-invalid={errors.intakeId ? 'true' : 'false'}
+                aria-describedby={errors.intakeId ? 'intakeId-error' : undefined}
                 required
               />
-              {errors.lobName && (
-                <div id="lobName-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.lobName}
+              {errors.intakeId && (
+                <div id="intakeId-error" className="text-red-500 text-xs mt-1" role="alert">
+                  {errors.intakeId}
                 </div>
               )}
             </div>
+
+            {/* Topic Name */}
             <div>
-              <label htmlFor="onboardType" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Onboard Type <span className="text-red-500" aria-label="required">*</span>
+              <label htmlFor="topicName" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Topic Name <span className="text-red-500" aria-label="required">*</span>
               </label>
-              <select 
-                id="onboardType"
-                name="onboardType" 
-                value={form.onboardType} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${errors.onboardType ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.onboardType ? 'true' : 'false'}
-                aria-describedby={errors.onboardType ? 'onboardType-error' : undefined}
-                required
-              >
-                <option value="">Select Type</option>
-                {onboardTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-              {errors.onboardType && (
-                <div id="onboardType-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.onboardType}
-                </div>
-              )}
-            </div>
-            <div>
-              <label htmlFor="domain" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Domain <span className="text-red-500" aria-label="required">*</span>
-              </label>
-              <input 
-                id="domain"
-                name="domain" 
-                value={form.domain} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${errors.domain ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.domain ? 'true' : 'false'}
-                aria-describedby={errors.domain ? 'domain-error' : undefined}
-                required
-              />
-              {errors.domain && (
-                <div id="domain-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.domain}
-                </div>
-              )}
-            </div>
-            <div>
-              <label htmlFor="subDomain" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Sub-Domain <span className="text-red-500" aria-label="required">*</span>
-              </label>
-              <input 
-                id="subDomain"
-                name="subDomain" 
-                value={form.subDomain} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${errors.subDomain ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.subDomain ? 'true' : 'false'}
-                aria-describedby={errors.subDomain ? 'subDomain-error' : undefined}
-                required
-              />
-              {errors.subDomain && (
-                <div id="subDomain-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.subDomain}
-                </div>
-              )}
-            </div>
-            <div>
-              <label htmlFor="volumeOfEvents" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Volume of Events <span className="text-red-500" aria-label="required">*</span>
-              </label>
-              <input 
-                id="volumeOfEvents"
-                name="volumeOfEvents" 
-                value={form.volumeOfEvents} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${errors.volumeOfEvents ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.volumeOfEvents ? 'true' : 'false'}
-                aria-describedby={errors.volumeOfEvents ? 'volumeOfEvents-error' : undefined}
-                required
-              />
-              {errors.volumeOfEvents && (
-                <div id="volumeOfEvents-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.volumeOfEvents}
-                </div>
-              )}
-            </div>
-            <div className="md:col-span-2">
-              <fieldset>
-                <legend className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                  Environment ARNs <span className="text-red-500" aria-label="required">*</span>
-                </legend>
-                <div className="space-y-2 mb-4">
-                  {form.envARNs.map((row, idx) => {
-                    // Used envs except for this row
-                    const usedEnvs = form.envARNs.map((r, i) => i !== idx ? r.env : null).filter(Boolean);
-                    const rowError = errors.envARNsRows && errors.envARNsRows[idx];
-                    return (
-                      <div key={idx} className="flex gap-2 mb-1 items-start">
-                        <select
-                          id={`env-${idx}`}
-                          className={`rounded p-2 min-w-[90px] focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${rowError ? 'border border-red-500' : ''}`}
-                          value={row.env}
-                          onChange={e => handleEnvArnChange(idx, 'env', e.target.value)}
-                          onBlur={() => handleEnvArnBlur(idx)}
-                          required={idx === 0}
-                          disabled={usedEnvs.length >= ENVIRONMENTS.length}
-                          aria-label={`Environment ${idx + 1}`}
-                          aria-invalid={rowError ? 'true' : 'false'}
-                        >
-                          <option value="">Select Env</option>
-                          {ENVIRONMENTS.map(env => (
-                            <option key={env} value={env} disabled={usedEnvs.includes(env)}>{env}</option>
-                          ))}
-                        </select>
-                        <div className="flex-1">
-                          <input
-                            id={`arn-${idx}`}
-                            className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${rowError ? 'border border-red-500' : ''}`}
-                            placeholder="Enter ARN"
-                            value={row.arn}
-                            onChange={e => handleEnvArnChange(idx, 'arn', e.target.value)}
-                            onBlur={() => handleEnvArnBlur(idx)}
-                            required={!!row.env}
-                            disabled={!row.env}
-                            aria-label={`ARN for environment ${idx + 1}`}
-                            aria-invalid={rowError ? 'true' : 'false'}
-                          />
-                          {rowError && (
-                            <div className="text-red-400 text-xs mt-1" role="alert">
-                              {rowError}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {errors.envARNs && (
-                  <div className="text-red-400 text-xs mt-1" role="alert">
-                    {errors.envARNs}
-                  </div>
-                )}
-              </fieldset>
-            </div>
-            {/* Move Schema Name above Topic Name */}
-            <div className="md:col-span-2">
-              <label htmlFor="schemaName" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Schema Name
-              </label>
-              <textarea
-                id="schemaName"
-                name="schemaName"
-                value={getSchemaNames()}
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-gray-50 text-gray-800 border border-gray-300'}`}
-                readOnly
-                rows={Math.max(2, form.envARNs.filter(row => row.env).length)}
-                placeholder="Schema name will be generated as ebeh-ob-env-domain-subdomain-schema for each environment"
-                aria-label="Generated schema names"
-              />
-            </div>
-            <div className="md:col-span-2">
-              <label htmlFor="topicName" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Topic Name
-              </label>
-              <textarea
+              <input
                 id="topicName"
                 name="topicName"
-                value={getTopicNamesArray().join('\n')}
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-gray-50 text-gray-800 border border-gray-300'}`}
-                readOnly
-                rows={Math.max(2, form.envARNs.filter(row => row.env).length)}
-                placeholder="Topic name will be generated as domain-subdomain-env for each environment"
-                aria-label="Generated topic names"
-              />
-            </div>
-            <div>
-              <label htmlFor="tentativeProdDate" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Tentative PROD Date <span className="text-red-500" aria-label="required">*</span>
-              </label>
-              <input 
-                id="tentativeProdDate"
-                name="tentativeProdDate" 
-                type="date" 
-                value={form.tentativeProdDate} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${errors.tentativeProdDate ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.tentativeProdDate ? 'true' : 'false'}
-                aria-describedby={errors.tentativeProdDate ? 'tentativeProdDate-error' : undefined}
+                type="text"
+                value={form.topicName}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isDarkMode
+                    ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                    : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                } ${errors.topicName ? 'border-red-500' : ''}`}
+                aria-invalid={errors.topicName ? 'true' : 'false'}
+                aria-describedby={errors.topicName ? 'topicName-error' : undefined}
                 required
               />
-              {errors.tentativeProdDate && (
-                <div id="tentativeProdDate-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.tentativeProdDate}
+              {errors.topicName && (
+                <div id="topicName-error" className="text-red-500 text-xs mt-1" role="alert">
+                  {errors.topicName}
                 </div>
               )}
             </div>
-            <div className="flex items-center mt-6">
-              <input 
-                id="canPerformPT"
-                name="canPerformPT" 
-                type="checkbox" 
-                checked={form.canPerformPT} 
-                onChange={handleChange} 
-                className="mr-2 focus:ring-2 focus:ring-blue-500"
-                aria-label="Able to perform PT"
-              />
-              <label htmlFor="canPerformPT" className={isDarkMode ? 'text-gray-300' : ''}>
-                Able to perform PT?
-              </label>
-            </div>
+
+            {/* App Id */}
             <div>
-              <label htmlFor="notificationEmail" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Notification Email <span className="text-red-500" aria-label="required">*</span>
+              <label htmlFor="appId" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                App Id <span className="text-red-500" aria-label="required">*</span>
               </label>
-              <input 
-                id="notificationEmail"
-                name="notificationEmail" 
-                type="email" 
-                value={form.notificationEmail} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700' : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'} ${errors.notificationEmail ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.notificationEmail ? 'true' : 'false'}
-                aria-describedby={errors.notificationEmail ? 'notificationEmail-error' : undefined}
+              <input
+                id="appId"
+                name="appId"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={form.appId}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isDarkMode
+                    ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                    : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                } ${errors.appId ? 'border-red-500' : ''}`}
+                placeholder="Numbers only"
+                aria-invalid={errors.appId ? 'true' : 'false'}
+                aria-describedby={errors.appId ? 'appId-error' : undefined}
                 required
               />
-              {errors.notificationEmail && (
-                <div id="notificationEmail-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.notificationEmail}
+              {errors.appId && (
+                <div id="appId-error" className="text-red-500 text-xs mt-1" role="alert">
+                  {errors.appId}
                 </div>
               )}
             </div>
+
+            {/* Team Name */}
             <div>
-              <label htmlFor="contactEmails" className={`block mb-1 ${isDarkMode ? 'text-gray-300' : ''}`}>
-                Contact Emails <span className="text-red-500" aria-label="required">*</span>
+              <label htmlFor="teamName" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Team Name <span className="text-red-500" aria-label="required">*</span>
               </label>
-              <textarea 
-                id="contactEmails"
-                name="contactEmails" 
-                value={form.contactEmails} 
-                onChange={handleChange} 
-                onBlur={handleBlur} 
-                className={`w-full rounded p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-100' : 'bg-white text-gray-800 border border-gray-300'} ${errors.contactEmails ? 'border border-red-500' : ''}`}
-                aria-invalid={errors.contactEmails ? 'true' : 'false'}
-                aria-describedby={errors.contactEmails ? 'contactEmails-error' : undefined}
+              <div className="relative" data-team-dropdown>
+                <div className="relative">
+                  <input
+                    type="text"
+                    id="teamName"
+                    name="teamName"
+                    value={isTeamDropdownOpen ? teamSearchQuery : form.teamName}
+                    onChange={(e) => {
+                      if (isTeamDropdownOpen) {
+                        setTeamSearchQuery(e.target.value);
+                      } else {
+                        setIsTeamDropdownOpen(true);
+                        setTeamSearchQuery(e.target.value);
+                      }
+                    }}
+                    onFocus={() => {
+                      setIsTeamDropdownOpen(true);
+                      setTeamSearchQuery('');
+                    }}
+                    onBlur={(e) => {
+                      // Delay to allow click on dropdown item to register
+                      setTimeout(() => {
+                        if (!document.activeElement?.closest('[data-team-dropdown]')) {
+                          setTouched(prev => ({ ...prev, teamName: true }));
+                          validateField('teamName', form.teamName);
+                        }
+                      }, 200);
+                    }}
+                    disabled={loadingTeams}
+                    placeholder={loadingTeams ? 'Loading teams...' : form.teamName || 'Select Team'}
+                    className={`w-full rounded-lg p-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isDarkMode
+                        ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700 disabled:opacity-50'
+                        : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500 disabled:opacity-50'
+                    } ${errors.teamName ? 'border-red-500' : ''}`}
+                    aria-invalid={errors.teamName ? 'true' : 'false'}
+                    aria-describedby={errors.teamName ? 'teamName-error' : undefined}
+                    aria-expanded={isTeamDropdownOpen}
+                    aria-haspopup="listbox"
+                    required
+                  />
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
+                    {loadingTeams ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    ) : (
+                      <ChevronDown 
+                        size={16} 
+                        className={`transition-transform ${isTeamDropdownOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
+                        aria-hidden="true"
+                      />
+                    )}
+                  </div>
+                </div>
+                
+                {/* Dropdown List */}
+                {isTeamDropdownOpen && !loadingTeams && (
+                  <div className={`absolute z-50 w-full mt-1 rounded-lg shadow-lg border max-h-60 overflow-auto ${
+                    isDarkMode
+                      ? 'bg-gray-800 border-gray-700'
+                      : 'bg-white border-gray-200'
+                  }`}>
+                    {filteredTeams.length > 0 ? (
+                      <ul role="listbox" className="py-1">
+                        {filteredTeams.map((team) => (
+                          <li
+                            key={team.id}
+                            role="option"
+                            onClick={() => handleTeamSelect(team.name)}
+                            className={`px-4 py-2 cursor-pointer transition-colors ${
+                              form.teamName === team.name
+                                ? isDarkMode
+                                  ? 'bg-blue-600/20 text-blue-200'
+                                  : 'bg-blue-50 text-blue-700'
+                                : isDarkMode
+                                  ? 'hover:bg-gray-700 text-gray-200'
+                                  : 'hover:bg-gray-100 text-gray-800'
+                            }`}
+                            aria-selected={form.teamName === team.name}
+                          >
+                            {team.name}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <div className={`px-4 py-3 text-sm ${
+                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                      }`}>
+                        No teams found
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {errors.teamName && (
+                <div id="teamName-error" className="text-red-500 text-xs mt-1" role="alert">
+                  {errors.teamName}
+                </div>
+              )}
+            </div>
+
+            {/* Role Name */}
+            <div className="md:col-span-2">
+              <div className="flex items-start gap-4">
+                <div className="flex-1">
+                  <label htmlFor="roleName" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Role Name {form.roleNameOverride && <span className="text-red-500" aria-label="required">*</span>}
+                  </label>
+                  <input
+                    id="roleName"
+                    name="roleName"
+                    type="text"
+                    value={form.roleName}
+                    onChange={handleChange}
+                    onBlur={handleBlur}
+                    disabled={!form.roleNameOverride}
+                    className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isDarkMode
+                        ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                        : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
+                    } ${errors.roleName ? 'border-red-500' : ''}`}
+                    placeholder={form.roleNameOverride ? 'Enter role name' : 'Auto-generated from team name'}
+                    aria-invalid={errors.roleName ? 'true' : 'false'}
+                    aria-describedby={errors.roleName ? 'roleName-error' : undefined}
+                  />
+                  {errors.roleName && (
+                    <div id="roleName-error" className="text-red-500 text-xs mt-1" role="alert">
+                      {errors.roleName}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center mt-8">
+                  <input
+                    id="roleNameOverride"
+                    name="roleNameOverride"
+                    type="checkbox"
+                    checked={form.roleNameOverride}
+                    onChange={handleChange}
+                    className="w-4 h-4 focus:ring-2 focus:ring-blue-500 rounded"
+                  />
+                  <label htmlFor="roleNameOverride" className={`ml-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                    Override
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            {/* Role ARNs - Environment-based */}
+            <div className="md:col-span-2">
+              <label className={`block mb-2 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Role ARN <span className="text-red-500" aria-label="required">*</span>
+              </label>
+              <div className="space-y-2">
+                {form.roleARNs.map((row, index) => {
+                  // Get used environments except for this row
+                  const usedEnvs = form.roleARNs.map((r, i) => i !== index ? r.env : null).filter(Boolean);
+                  const rowError = errors.roleARNsRows && errors.roleARNsRows[index];
+                  
+                  return (
+                    <div key={index} className="flex gap-2 items-start">
+                      <select
+                        className={`rounded-lg p-2.5 min-w-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isDarkMode
+                            ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                            : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                        } ${rowError ? 'border-red-500' : ''}`}
+                        value={row.env}
+                        onChange={(e) => handleRoleARNChange(index, 'env', e.target.value)}
+                        onBlur={() => handleRoleARNBlur(index)}
+                        required={index === 0}
+                        aria-label={`Environment ${index + 1}`}
+                        aria-invalid={rowError ? 'true' : 'false'}
+                      >
+                        <option value="">Select Env</option>
+                        {ENVIRONMENTS.map(env => (
+                          <option 
+                            key={env} 
+                            value={env} 
+                            disabled={usedEnvs.includes(env)}
+                          >
+                            {env}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          value={row.arn}
+                          onChange={(e) => handleRoleARNChange(index, 'arn', e.target.value)}
+                          onBlur={() => handleRoleARNBlur(index)}
+                          className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isDarkMode
+                              ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                              : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                          } ${rowError ? 'border-red-500' : ''}`}
+                          placeholder={row.env ? `Enter ${row.env} ARN` : 'Select environment first'}
+                          disabled={!row.env}
+                          required={!!row.env}
+                          aria-label={`ARN for ${row.env || 'environment'} ${index + 1}`}
+                          aria-invalid={rowError ? 'true' : 'false'}
+                        />
+                        {rowError && (
+                          <div className="text-red-500 text-xs mt-1" role="alert">
+                            {rowError}
+                          </div>
+                        )}
+                      </div>
+                      {form.roleARNs.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeRoleARN(index)}
+                          className={`p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isDarkMode
+                              ? 'bg-gray-700 hover:bg-gray-600 text-gray-100'
+                              : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                          }`}
+                          aria-label={`Remove Role ARN ${index + 1}`}
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              {errors.roleARNs && (
+                <div className="text-red-500 text-xs mt-1" role="alert">
+                  {errors.roleARNs}
+                </div>
+              )}
+            </div>
+
+            {/* Email Address */}
+            <div>
+              <label htmlFor="emailAddress" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Email Address <span className="text-red-500" aria-label="required">*</span>
+              </label>
+              <input
+                id="emailAddress"
+                name="emailAddress"
+                type="email"
+                value={form.emailAddress}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  isDarkMode
+                    ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                    : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                } ${errors.emailAddress ? 'border-red-500' : ''}`}
+                placeholder="email@example.com"
+                aria-invalid={errors.emailAddress ? 'true' : 'false'}
+                aria-describedby={errors.emailAddress ? 'emailAddress-error' : undefined}
                 required
               />
-              {errors.contactEmails && (
-                <div id="contactEmails-error" className="text-red-400 text-xs mt-1" role="alert">
-                  {errors.contactEmails}
+              {errors.emailAddress && (
+                <div id="emailAddress-error" className="text-red-500 text-xs mt-1" role="alert">
+                  {errors.emailAddress}
                 </div>
               )}
             </div>
           </div>
-          <div className="flex justify-end space-x-4 pt-4">
-            <button 
-              type="button" 
-              onClick={handleCancel} 
-              className={`px-6 py-2 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-100' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'} font-semibold transition-all`}
+
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              type="button"
+              onClick={handleCancel}
+              className={`px-6 py-2.5 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isDarkMode
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-100'
+                  : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+              } transition-all`}
             >
               Cancel
             </button>
-            <button 
-              type="submit" 
-              className={`px-6 py-2 rounded font-semibold shadow transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDarkMode ? 'bg-blue-800 hover:bg-blue-700 text-white' : 'bg-blue-900 hover:bg-blue-950 text-white'}`}
+            <button
+              type="submit"
+              disabled={loading}
+              className={`px-6 py-2.5 rounded-lg font-medium shadow transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                isDarkMode
+                  ? 'bg-blue-800 hover:bg-blue-700 text-white disabled:opacity-50'
+                  : 'bg-blue-900 hover:bg-blue-950 text-white disabled:opacity-50'
+              }`}
               aria-label={isEditMode ? 'Update onboarding' : 'Submit onboarding'}
             >
-              {isEditMode ? 'Update' : 'Submit'}
+              {loading ? 'Submitting...' : isEditMode ? 'Update' : 'Submit'}
             </button>
           </div>
         </form>
@@ -601,4 +811,4 @@ const OnboardForm = () => {
   );
 };
 
-export default OnboardForm; 
+export default OnboardForm;

@@ -52,8 +52,13 @@ const Dashboard = () => {
           topicMap.get(key).schemas.push(s);
         });
         setTopics(Array.from(topicMap.values()));
-      } catch {
-        setTopics([]);
+      } catch (error) {
+        console.error('Failed to fetch topics:', error);
+        // If it's a 401, the interceptor will handle redirect
+        if (error.response?.status !== 401) {
+          // Only set empty array if it's not an auth error
+          setTopics([]);
+        }
       }
       setLoadingTopics(false);
     };

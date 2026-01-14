@@ -38,7 +38,34 @@ api.interceptors.response.use(
   },
   (error) => {
     console.error('API Error:', error);
-    return Promise.reject(error);
+    
+    // Handle 401 Unauthorized - token expired or invalid
+    if (error.response?.status === 401) {
+      // Clear invalid token
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('session');
+      
+      // Redirect to signin if not already there
+      if (window.location.pathname !== '/signin' && window.location.pathname !== '/signup') {
+        window.location.href = '/signin';
+      }
+    }
+    
+    // Extract error message from response
+    const errorMessage = error.response?.data?.detail || 
+                        error.response?.data?.message || 
+                        error.message || 
+                        'An error occurred';
+    
+    // Create a more informative error object
+    const enhancedError = {
+      ...error,
+      message: errorMessage,
+      status: error.response?.status,
+      data: error.response?.data
+    };
+    
+    return Promise.reject(enhancedError);
   }
 );
 

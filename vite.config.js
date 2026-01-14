@@ -18,8 +18,9 @@ export default defineConfig(({ mode }) => {
       cors: true, // Enable CORS
       proxy: {
         // Proxy API requests to your backend
+        // Note: This proxy is optional if using direct API calls via VITE_BACKEND_URL
         '/api': {
-          target: 'http://localhost:3000', // Adjust to your backend port
+          target: 'http://localhost:8000', // Python backend runs on port 8000
           changeOrigin: true,
           secure: false
         }

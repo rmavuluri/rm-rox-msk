@@ -79,7 +79,10 @@ const SignIn = () => {
       console.log('Fetching token from backend...');
       let token = null;
       try {
-        const res = await api.post('/login', {});
+        const res = await api.post('/login', {
+          email: formData.email,
+          password: formData.password
+        });
         token = res.data.access_token;
         if (token) {
           localStorage.setItem('access_token', token);
@@ -87,8 +90,13 @@ const SignIn = () => {
         }
       } catch (tokenError) {
         console.error('Failed to get backend token:', tokenError);
-        // We continue login even if backend token fails, or should we fail?
-        // User asked for "auth with token", so maybe we should warn, but proceed for UI demo.
+        // Show user-friendly error message
+        const errorMsg = tokenError.response?.data?.detail || 
+                        tokenError.message || 
+                        'Failed to authenticate with backend service';
+        setErrors({ general: errorMsg });
+        setIsLoading(false);
+        return; // Stop login process if backend token fails
       }
 
       // Always use local storage authentication for email/password form
