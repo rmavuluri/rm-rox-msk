@@ -10,6 +10,7 @@ import { AuthProvider } from './hooks/AuthContext';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const FulcrumResources = lazy(() => import('./pages/FulcrumResources'));
 const OnboardForm = lazy(() => import('./pages/OnboardForm'));
+const OnboardingTracker = lazy(() => import('./pages/OnboardingTracker'));
 
 const SignUp = lazy(() => import('./pages/SignUp'));
 const SignIn = lazy(() => import('./pages/SignIn'));
@@ -50,6 +51,13 @@ const App = () => {
                 <ProtectedRoute>
                   <Layout>
                     <OnboardForm />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/onboarding-tracker" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <OnboardingTracker />
                   </Layout>
                 </ProtectedRoute>
               } />

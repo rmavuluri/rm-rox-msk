@@ -10,6 +10,7 @@ import {
   Users,
   BookOpen,
   FileText,
+  ClipboardList,
 } from 'lucide-react';
 import FulcrumResourcesSlider from './FulcrumResourcesSlider';
 import { useTheme } from '../hooks/ThemeContext';
@@ -24,6 +25,11 @@ const menu = [
     label: 'Onboard Form',
     icon: <FileText size={20} />,
     to: '/onboard',
+  },
+  {
+    label: 'Onboarding Tracker',
+    icon: <ClipboardList size={20} />,
+    to: '/onboarding-tracker',
   },
   {
     label: 'Fulcrum Resources',

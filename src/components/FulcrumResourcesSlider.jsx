@@ -1,291 +1,244 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useTheme } from '../hooks/ThemeContext';
 
 const resources = [
   {
     id: 1,
-    title: 'Documentation',
-    description: 'Comprehensive guides and API documentation,',
-    url: 'https://www.google.com',
-    icon: '📚',
+    title: 'Fulcrum Architecture',
+    description: 'Architecture & Context View, Integration Patterns',
+    icon: '🏗️',
     color: 'from-blue-500 to-blue-600',
     bgColor: 'from-blue-50 to-blue-100',
-    content: `# Documentation
+    items: [
+      { name: 'Architecture & Context View', url: '#' },
+      { name: 'Fulcrum Integration Patterns', url: '#' }
+    ],
+    content: `# Fulcrum Architecture
 
-Welcome to our comprehensive documentation portal. Here you'll find everything you need to get started with our platform.
+Explore the architecture and integration patterns for Fulcrum.
 
-## Getting Started
-- Quick Start Guide
-- Installation Instructions
-- Configuration Options
-- Best Practices
+## Architecture & Context View
+- System architecture overview
+- Component relationships
+- Data flow diagrams
+- Context diagrams
 
-## API Reference
-- Authentication
-- Endpoints
-- Request/Response Examples
-- Error Codes
-
-## Tutorials
-- Step-by-step guides
-- Code examples
-- Common use cases
-- Troubleshooting
-
-For more detailed information, visit our full documentation at: https://www.google.com`,
+## Fulcrum Integration Patterns
+- Producer patterns
+- Consumer patterns
+- Event-driven architecture
+- Integration best practices`,
   },
   {
     id: 2,
-    title: 'API Reference',
-    description: 'Detailed API endpoints and parameters,',
-    url: 'https://api.example.com',
-    icon: '🔗',
-    color: 'from-blue-800 to-blue-950',
-    bgColor: 'from-blue-50 to-blue-100',
-    content: `# API Reference
+    title: 'Fulcrum Code Base',
+    description: 'GitLab Repos, Producer & Consumer applications',
+    icon: '💻',
+    color: 'from-green-500 to-green-600',
+    bgColor: 'from-green-50 to-green-100',
+    items: [
+      { name: 'Fulcrum GitLab Repos', url: '#' },
+      { name: 'How to create Producer & Consumer applications', url: '#' }
+    ],
+    content: `# Fulcrum Code Base
 
-Our RESTful API provides programmatic access to all platform features.
+Access the source code and learn how to build applications.
 
-## Authentication
-All API requests require authentication using API keys or OAuth tokens.
+## Fulcrum GitLab Repos
+- Main repository
+- Component repositories
+- Example projects
+- Documentation repos
 
-## Base URL
-\`https://api.example.com/v1\`
-
-## Endpoints
-
-### GET /users
-Retrieve a list of users
-\`\`\`json
-[
-  {
-    "id": 1,
-    "name": "John Doe",
-    "email": "john@example.com"
-  }
-]
-\`\`\`
-
-### POST /users
-Create a new user
-\`\`\`json
-{
-  "name": "Jane Doe",
-  "email": "jane@example.com"
-}
-\`\`\`
-
-For complete API documentation, visit: https://api.example.com`,
+## How to create Producer & Consumer applications
+- Step-by-step guide
+- Code templates
+- Configuration examples
+- Testing strategies`,
   },
   {
     id: 3,
-    title: 'Tutorials',
-    description: 'Step-by-step tutorials and examples,',
-    url: 'https://tutorials.example.com',
-    icon: '🎓',
-    color: 'from-green-50 to-green-600',
-    bgColor: 'from-green-50 to-green-100',
-    content: `# Tutorials
+    title: 'Frequently asked questions',
+    description: 'Event Schemas, Onboarding Tracker, Deployment Runbook',
+    icon: '❓',
+    color: 'from-purple-500 to-purple-600',
+    bgColor: 'from-purple-50 to-purple-100',
+    items: [
+      { name: 'Existing Onboarded Topics - Event Schemas', url: '#' },
+      { name: 'Onboarding Tracker', url: '#' },
+      { name: 'Deployment Runbook', url: '#' }
+    ],
+    content: `# Frequently Asked Questions
 
-Learn how to use our platform with step-by-step tutorials.
+Find answers to common questions about Fulcrum.
 
-## Beginner Tutorials
-1. **Setting Up Your First Project**
-   - Create a new project
-   - Configure basic settings
-   - Deploy your first application
-2. **Working with Data**
-   - Import data sources
-   - Create data models
-   - Build queries and filters
+## Existing Onboarded Topics - Event Schemas
+- Available event schemas
+- Schema documentation
+- Version information
+- Usage examples
 
-3. **Building Dashboards**
-   - Create visualizations
-   - Design layouts
-   - Share with team members
+## Onboarding Tracker
+- Track onboarding progress
+- View onboarding status
+- Monitor completion rates
 
-## Advanced Tutorials
-- Custom integrations
-- Performance optimization
-- Security best practices
-- Scaling your application
-
-Visit our tutorial hub: https://tutorials.example.com`,
+## Deployment Runbook
+- Deployment procedures
+- Rollback procedures
+- Troubleshooting guide
+- Best practices`,
   },
   {
     id: 4,
-    title: 'Community Forum',
-    description: 'Connect with other developers,',
-    url: 'https://community.example.com',
-    icon: '👥',
+    title: 'Fulcrum Onboarding',
+    description: 'On-boarding Guide, Event Structure, Intake Form, Engagement Model',
+    icon: '🚀',
     color: 'from-orange-500 to-orange-600',
     bgColor: 'from-orange-50 to-orange-100',
-    content: `# Community Forum
+    items: [
+      { name: 'On-boarding Guide', url: '#' },
+      { name: 'Event Structure', url: '#' },
+      { name: 'Fulcrum Intake Form', url: '#' },
+      { name: 'Engagement Model', url: '#' }
+    ],
+    content: `# Fulcrum Onboarding
 
-Join our vibrant community of developers and users.
+Get started with Fulcrum onboarding process.
 
-## Discussion Categories
-- **General Discussion**
-  - Platform updates
-  - Feature requests
-  - General questions
+## On-boarding Guide
+- Step-by-step onboarding instructions
+- Prerequisites and requirements
+- Timeline and milestones
+- Success criteria
 
-- **Technical Support**
-  - Bug reports
-  - Troubleshooting
-  - Implementation help
+## Event Structure
+- Event schema structure
+- Required fields
+- Optional fields
+- Validation rules
 
-- **Showcase**
-  - Project demos
-  - Success stories
-  - Code sharing
+## Fulcrum Intake Form
+- Submit onboarding request
+- Provide project details
+- Specify requirements
+- Track submission status
 
-- **Events & Meetups**
-  - Webinars
-  - Local meetups
-  - Conference announcements
-
-## Community Guidelines
-- Be respectful and helpful
-- Search before posting
-- Use appropriate categories
-- Follow code of conduct
-
-Join the conversation: https://community.example.com`,
+## Engagement Model
+- Engagement process overview
+- Roles and responsibilities
+- Communication channels
+- Support model`,
   },
   {
     id: 5,
-    title: 'Support Center',
-    description: 'Get help and submit tickets,',
-    url: 'https://support.example.com',
-    icon: '🆘',
-    color: 'from-red-500 to-red-600',
-    bgColor: 'from-red-50 to-red-100',
-    content: `# Support Center
+    title: 'Fulcrum Deployments',
+    description: 'AWS Deployments, Deployment Runbook',
+    icon: '☁️',
+    color: 'from-indigo-500 to-indigo-600',
+    bgColor: 'from-indigo-50 to-indigo-100',
+    items: [
+      { name: 'AWS Deployments', url: '#' },
+      { name: 'Deployment Runbook', url: '#' }
+    ],
+    content: `# Fulcrum Deployments
 
-Get the help you need when you need it.
+Learn about deployment processes and procedures.
 
-## Support Options
+## AWS Deployments
+- AWS infrastructure setup
+- Deployment configurations
+- Environment management
+- Security considerations
 
-### Self-Service
-- **Knowledge Base**: Search our extensive documentation
-- **FAQ**: Find answers to common questions
-- **Video Tutorials**: Step-by-step video guides
-- **Troubleshooting Guides**: Solve common issues
-
-### Contact Support
-- **Email Support**: support@example.com
-- **Live Chat**: Available 24/7
-- **Phone Support**: +1SUPPORT
-- **Ticket System**: Submit detailed requests
-
-## Priority Levels
-- **Critical**: System down, data loss
-- **High**: Major functionality broken
-- **Medium**: Minor issues, workarounds available
-- **Low**: Feature requests, general questions
-
-## Response Times
-- Critical: 2 hours
-- High: 4 hours
-- Medium: 24 hours
-- Low: 48 hours
-
-Get support now: https://support.example.com`,
+## Deployment Runbook
+- Pre-deployment checklist
+- Deployment steps
+- Post-deployment verification
+- Rollback procedures
+- Troubleshooting guide`,
   },
   {
     id: 6,
-    title: 'GitHub Repository',
-    description: 'Source code and contributions,',
-    url: 'https://github.com/example',
-    icon: '💻',
-    color: 'from-gray-700 to-gray-800',
-    bgColor: 'from-gray-50 to-gray-100',
-    content: `# GitHub Repository
+    title: 'Need more help?',
+    description: 'Fulcrum Artifacts, KB Articles, Cluster Upgrade',
+    icon: '🆘',
+    color: 'from-red-500 to-red-600',
+    bgColor: 'from-red-50 to-red-100',
+    items: [
+      { name: 'Fulcrum Artifacts', url: '#' },
+      { name: 'KB Articles', url: '#' },
+      { name: 'Fulcrum Cluster Upgrade 3.6.0', url: '#' }
+    ],
+    content: `# Need More Help?
 
-Contribute to our open-source projects and explore the codebase.
+Additional resources and support options.
 
-## Repository Structure
-\`\`\`
-project/
-├── src/
-│   ├── components/
-│   ├── pages/
-│   ├── hooks/
-│   └── utils/
-├── docs/
-├── tests/
-└── README.md
-\`\`\`
+## Fulcrum Artifacts
+- Downloadable resources
+- Documentation packages
+- Reference materials
+- Templates and examples
 
-## Getting Started
-1. Fork the repository
-2. Clone your fork
-3. Create a feature branch
-4. Make your changes
-5. Submit a pull request
+## KB Articles
+- Knowledge base articles
+- Troubleshooting guides
+- Best practices
+- Common issues and solutions
 
-## Contributing Guidelines
-- Follow the coding standards
-- Write tests for new features
-- Update documentation
-- Use conventional commits
-
-## Available Repositories
-- **Core Platform**: Main application
-- **SDKs**: Client libraries
-- **Examples**: Sample applications
-- **Documentation**: Docs site
-
-Visit our GitHub: https://github.com/example`,
+## Fulcrum Cluster Upgrade 3.6.0
+- Upgrade guide
+- Release notes
+- Migration steps
+- Compatibility information
+- Known issues`,
   },
 ];
 
-const ResourceCard = ({ resource, isSelected, onClick }) => {
+const ResourceCard = ({ resource }) => {
   const { isDarkMode } = useTheme();
   
-  const handleKeyDown = (event) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      onClick();
+  const handleLinkClick = (e, url) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (url && url !== '#') {
+      window.open(url, '_blank', 'noopener,noreferrer');
     }
   };
   
   return (
     <div
-      className={`group relative p-8 border-2 rounded-2xl transition-all duration-300 hover:shadow-2xl hover:scale-105 cursor-pointer ${isDarkMode ? 'bg-gray-800/70 border-gray-600' : 'bg-white/70 border-gray-200'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}
-      onClick={(e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        onClick();
-      }}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      role="button"
-      aria-label={`Open ${resource.title} - ${resource.description}`}
+      className={`group relative p-6 border-2 rounded-2xl transition-all duration-300 hover:shadow-xl ${isDarkMode ? 'bg-gray-800/70 border-gray-600' : 'bg-white/70 border-gray-200'}`}
     >
       {/* Hover effect overlay */}
       <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${resource.bgColor} opacity-0 group-hover:opacity-10 transition-opacity duration-300`} />
-      <div className="relative flex items-center space-x-6">
-        <div className={`p-4 rounded-xl flex items-center justify-center text-3xl ${isSelected ? 'bg-white bg-opacity-30' : `bg-gradient-to-br ${resource.bgColor}`}`}>
-          <span role="img" aria-label={`${resource.title} icon`}>{resource.icon}</span>
+      <div className="relative">
+        <div className="flex items-start space-x-4 mb-4">
+          <div className={`p-3 rounded-xl flex items-center justify-center text-2xl bg-gradient-to-br ${resource.bgColor}`}>
+            <span role="img" aria-label={`${resource.title} icon`}>{resource.icon}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className={`font-bold text-xl mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{resource.title}</h3>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h3 className={`font-bold text-lg mb-1 truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{resource.title}</h3>
-          <p className={`text-sm ${isSelected ? 'text-blue-900' : isDarkMode ? 'text-gray-300' : 'text-gray-600'} truncate`}>{resource.description}</p>
-        </div>
-        <div className="flex items-center space-x-3">
-          <div className={`w-3 h-3 rounded-full ${isSelected ? 'bg-blue-400' : `bg-gradient-to-r ${resource.color}`} shadow-lg`} />
-          <svg 
-            className={`w-5 h-5 transition-transform duration-300 ${isSelected ? 'text-blue-400' : isDarkMode ? 'text-gray-400' : 'text-gray-400'} group-hover:translate-x-1`} 
-            fill="none" 
-            stroke="currentColor" 
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0l-4 4m4-4l-4-4" />
-          </svg>
-        </div>
+        {resource.items && resource.items.length > 0 && (
+          <ul className={`space-y-2 ml-12 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+            {resource.items.map((item, index) => (
+              <li key={index} className="flex items-start">
+                <span className="mr-2 text-blue-500">•</span>
+                <a
+                  href={item.url || '#'}
+                  onClick={(e) => handleLinkClick(e, item.url)}
+                  className={`text-sm hover:text-blue-600 hover:underline transition-colors duration-200 ${isDarkMode ? 'text-gray-300 hover:text-blue-400' : 'text-gray-700'}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {item.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -333,7 +286,6 @@ const ContentDisplay = ({ content }) => {
 };
 
 const FulcrumResourcesSlider = ({ isOpen, onClose }) => {
-  const [selectedResource, setSelectedResource] = useState(null);
   const { isDarkMode } = useTheme();
 
   // Handle keyboard navigation
@@ -362,13 +314,6 @@ const FulcrumResourcesSlider = ({ isOpen, onClose }) => {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [isOpen, onClose]);
-
-  const handleCardClick = (resource) => {
-    // Open the resource URL in a new tab
-    if (resource.url) {
-      window.open(resource.url, '_blank', 'noopener,noreferrer');
-    }
-  };
 
   const handleSliderClick = (e) => {
     e.stopPropagation();
@@ -429,8 +374,6 @@ const FulcrumResourcesSlider = ({ isOpen, onClose }) => {
                 <ResourceCard
                   key={resource.id}
                   resource={resource}
-                  isSelected={false}
-                  onClick={() => handleCardClick(resource)}
                 />
               ))}
             </div>
