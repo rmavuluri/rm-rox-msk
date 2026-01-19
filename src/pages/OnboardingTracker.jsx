@@ -239,19 +239,30 @@ const OnboardingTracker = () => {
 
   return (
     <div className={`min-h-screen ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Onboarding Tracker</h1>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 ${
-            isDarkMode
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-blue-600 text-white hover:bg-blue-700'
-          }`}
-        >
-          <Plus size={20} />
-          Add Onboarding Entry
-        </button>
+      <div className={`w-full ${isDarkMode ? 'bg-gray-900 border border-gray-800' : 'bg-white border border-gray-200'} rounded-xl shadow-lg mb-6`}>
+        {/* Header */}
+        <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800 bg-gradient-to-r from-gray-900 to-gray-800' : 'border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100'} rounded-t-xl flex items-center justify-between`}>
+          <div>
+            <h1 className={`text-2xl font-bold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'} mb-1`}>
+              Onboarding Tracker
+            </h1>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Manage and track onboarding entries across different sections
+            </p>
+          </div>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className={`flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:underline ${
+              isDarkMode
+                ? 'text-blue-400 hover:text-blue-300'
+                : 'text-blue-600 hover:text-blue-700'
+            }`}
+            aria-label="Add Onboarding Entry"
+          >
+            <Plus size={16} />
+            Add Onboarding Entry
+          </button>
+        </div>
       </div>
 
       {/* Form Modal */}
@@ -625,30 +636,32 @@ const OnboardingTracker = () => {
       )}
 
       {/* Tables Display */}
-      <div className="space-y-8">
+      <div className="space-y-6">
         {sections.map((section) => (
-          <div key={section.id} className="rounded-lg overflow-hidden shadow-lg">
+          <div key={section.id} className={`rounded-xl overflow-hidden shadow-lg border ${
+            isDarkMode ? 'border-gray-700 bg-gray-800/50' : 'border-gray-200 bg-white'
+          }`}>
             {/* Section Heading */}
-            <div className={`flex items-center justify-between px-6 py-4 ${
+            <div className={`flex items-center justify-between px-6 py-5 border-b ${
               isDarkMode 
-                ? 'bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 border-b border-gray-600' 
-                : 'bg-gradient-to-br from-white via-gray-50 to-white border-b border-gray-200'
+                ? 'bg-gradient-to-r from-gray-900 to-gray-800 border-gray-700' 
+                : 'bg-gradient-to-r from-blue-50 to-blue-100 border-gray-200'
             }`}>
-              <h2 className={`text-2xl font-bold ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
+              <h2 className={`text-2xl font-bold tracking-tight ${
+                isDarkMode ? 'text-white' : 'text-gray-800'
               }`}>
                 {section.heading}
               </h2>
               <button
                 onClick={() => setShowDeleteConfirm({ type: 'section', sectionId: section.id })}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 font-semibold ${
+                className={`flex items-center gap-2 text-sm font-medium transition-all duration-200 hover:underline ${
                   isDarkMode
-                    ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-red-600 hover:bg-red-700 text-white'
+                    ? 'text-red-400 hover:text-red-300'
+                    : 'text-red-600 hover:text-red-700'
                 }`}
                 aria-label={`Delete ${section.heading} section`}
               >
-                <Trash size={18} />
+                <Trash size={16} />
                 Delete Section
               </button>
             </div>
@@ -657,61 +670,57 @@ const OnboardingTracker = () => {
             <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
-                  <tr
-                    className={`${
-                      isDarkMode 
-                        ? 'bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800' 
-                        : 'bg-gradient-to-br from-gray-100 to-gray-200'
-                    } ${isDarkMode ? 'text-white' : 'text-gray-900'}`}
-                  >
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                  <tr className={`bg-gradient-to-r ${
+                    isDarkMode 
+                      ? 'from-gray-900 to-gray-800' 
+                      : 'from-blue-50 to-blue-100'
+                  } ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       LOB
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       Producer
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       Consumer
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       Intake Submitted
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       Onboarded in DEV
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       Onboarded in QA/CAP
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       Performance Testing
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       PSP date
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                    <th className={`px-5 py-4 text-left font-bold text-sm border-r ${
+                      isDarkMode ? 'border-gray-700' : 'border-blue-200'
                     }`}>
                       Production
                     </th>
-                    <th className={`px-4 py-3 text-left font-semibold text-sm border-b ${
-                      isDarkMode ? 'border-gray-600' : 'border-gray-300'
-                    }`}>
+                    <th className="px-5 py-4 text-left font-bold text-sm">
                       Actions
                     </th>
                   </tr>
@@ -720,66 +729,68 @@ const OnboardingTracker = () => {
                   {section.entries.map((entry, index) => (
                     <tr
                       key={entry.id}
-                      className={`${
+                      className={`transition-colors hover:${
+                        isDarkMode ? 'bg-gray-700/70' : 'bg-gray-50'
+                      } ${
                         index % 2 === 0
                           ? isDarkMode
-                            ? 'bg-gray-700/50'
-                            : 'bg-gray-100'
+                            ? 'bg-gray-800/30'
+                            : 'bg-white'
                           : isDarkMode
                           ? 'bg-gray-800/50'
-                          : 'bg-white'
+                          : 'bg-gray-50/50'
                       } ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}
                     >
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.lob}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.producer}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.consumer}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.intakeSubmitted}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.onboardedInDev}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.onboardedInQaCap}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.performanceTesting}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.pspDate}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
                         {entry.production}
                       </td>
-                      <td className="px-4 py-3 border-b border-gray-300/20">
-                        <div className="flex items-center gap-2">
+                      <td className="px-5 py-4 border-b border-gray-200/30">
+                        <div className="flex items-center gap-3">
                           <button
                             onClick={() => handleEdit(section.id, entry.id)}
-                            className={`p-2 rounded-lg transition-all duration-200 ${
+                            className={`transition-all duration-200 hover:opacity-70 ${
                               isDarkMode
-                                ? 'bg-blue-600/20 text-blue-400 hover:bg-blue-600/30'
-                                : 'bg-blue-100 text-blue-600 hover:bg-blue-200'
+                                ? 'text-blue-400 hover:text-blue-300'
+                                : 'text-blue-600 hover:text-blue-700'
                             }`}
                             aria-label={`Edit entry for ${entry.lob}`}
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={18} />
                           </button>
                           <button
                             onClick={() => setShowDeleteConfirm({ type: 'entry', sectionId: section.id, entryId: entry.id })}
-                            className={`p-2 rounded-lg transition-all duration-200 ${
+                            className={`transition-all duration-200 hover:opacity-70 ${
                               isDarkMode
-                                ? 'bg-red-600/20 text-red-400 hover:bg-red-600/30'
-                                : 'bg-red-100 text-red-600 hover:bg-red-200'
+                                ? 'text-red-400 hover:text-red-300'
+                                : 'text-red-600 hover:text-red-700'
                             }`}
                             aria-label={`Delete entry for ${entry.lob}`}
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
                       </td>
