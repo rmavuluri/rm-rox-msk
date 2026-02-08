@@ -75,79 +75,56 @@ const Sidebar = ({ expanded, setExpanded, onToggle }) => {
     <>
       <aside
         id="sidebar"
-        className={`self-stretch transition-all duration-300 ease-out ${expanded ? 'w-64' : 'w-20'} flex flex-col shadow-xl border-r relative ${isDarkMode
-            ? 'bg-gradient-to-b from-gray-900 via-gray-800 to-gray-900 text-white border-gray-700'
-            : 'bg-gradient-to-b from-white via-gray-50 to-white text-gray-800 border-gray-200'
+        className={`self-stretch transition-all duration-300 ease-out ${expanded ? 'w-64' : 'w-20'} flex flex-col relative z-10 ${isDarkMode
+            ? 'bg-gray-900/95 text-white border-r border-gray-700/80 shadow-[4px_0_24px_-4px_rgba(0,0,0,0.4)]'
+            : 'bg-white text-gray-800 border-r border-gray-200 shadow-[4px_0_24px_-4px_rgba(0,0,0,0.06)]'
           }`}
         role="navigation"
         aria-label="Main navigation"
       >
-        {/* Collapse/Expand Button - positioned on the right edge near top */}
+        {/* Collapse/Expand Button */}
         <button
           onClick={onToggle}
-          className={`absolute -right-4 top-12 flex items-center justify-center rounded-full border border-gray-300 bg-white shadow-md transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 z-10 ${isDarkMode ? 'border-gray-600 bg-gray-800 text-gray-300 focus:ring-blue-500' : 'border-gray-300 bg-white text-gray-800 focus:ring-grey-500'
-            } ${expanded ? 'w-8 h-8' : 'w-8 h-8'}`}
+          className={`absolute -right-3 top-14 flex items-center justify-center w-7 h-7 rounded-full shadow-md transition-all duration-200 hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-offset-2 z-20 ${isDarkMode
+            ? 'bg-gray-800 border border-gray-600 text-gray-300 hover:bg-gray-700 focus:ring-blue-500 focus:ring-offset-gray-900'
+            : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 focus:ring-blue-400 focus:ring-offset-white'
+          }`}
           aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
           aria-expanded={expanded}
           aria-controls="sidebar"
         >
-          {expanded ? (
-            <ChevronLeft size={16} aria-hidden="true" className="text-gray-800" />
-          ) : (
-            <ChevronRight size={16} aria-hidden="true" className="text-gray-800" />
-          )}
+          {expanded ? <ChevronLeft size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
         </button>
 
-        {/* Logo and collapse button */}
-        <div className="flex flex-col">
-          <div className="flex flex-col items-center justify-center p-6 pb-4">
-            <div className="flex items-center justify-center">
-              <Logo expanded={expanded} />
-            </div>
+        {/* Logo */}
+        <div className="flex flex-col shrink-0">
+          <div className="flex flex-col items-center justify-center py-5 px-4">
+            <Logo expanded={expanded} />
           </div>
-          {/* Modern gradient separator */}
-          <div className="h-px w-full bg-gradient-to-r from-transparent via-blue-500 to-transparent opacity-30" />
+          <div className={`h-px mx-4 ${isDarkMode ? 'bg-gray-700' : 'bg-gray-200'}`} />
         </div>
 
-        <nav className="flex-1 flex flex-col gap-1 px-3 mt-4" role="menubar">
+        <nav className="flex-1 flex flex-col gap-0.5 px-3 py-4 overflow-y-auto" role="menubar">
           {menu.map((item) => (
             <div key={item.label}>
               {item.dropdown ? (
                 <>
                   <button
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isDropdownActive(item.dropdown)
-                        ? `${isDarkMode
-                          ? 'bg-blue-600/15 text-blue-200 shadow-sm'
-                          : 'bg-blue-50 text-blue-700 shadow-sm'
-                        } font-medium`
-                        : `${isDarkMode
-                          ? 'hover:bg-gray-800/30 text-gray-300 hover:text-white'
-                          : 'hover:bg-gray-100/80 text-gray-700 hover:text-gray-900'
-                        }`
-                      }`}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${isDropdownActive(item.dropdown)
+                        ? isDarkMode ? 'bg-blue-500/15 text-blue-200' : 'bg-blue-50 text-blue-800'
+                        : isDarkMode ? 'hover:bg-gray-800/50 text-gray-300' : 'hover:bg-gray-100 text-gray-700'
+                      } ${isDropdownActive(item.dropdown) ? 'font-medium' : ''}`}
                     onClick={() => handleDropdownToggle(item.label)}
                     aria-expanded={openDropdown === item.label}
                     aria-haspopup="true"
                     aria-label={`${item.label} menu`}
                     role="menuitem"
                   >
-                    <div className={`p-1 rounded-md transition-colors ${isDropdownActive(item.dropdown)
-                        ? isDarkMode ? 'bg-blue-500/20' : 'bg-blue-100'
-                        : isDarkMode ? 'bg-gray-700/40' : 'bg-gray-100/60'
-                      }`}>
-                      {React.cloneElement(item.icon, {
-                        'aria-hidden': true,
-                        size: 18,
-                        className: isDropdownActive(item.dropdown) ? 'text-blue-500' : ''
-                      })}
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${isDropdownActive(item.dropdown) ? (isDarkMode ? 'bg-blue-500/25' : 'bg-blue-100') : (isDarkMode ? 'bg-gray-800' : 'bg-gray-100')}`}>
+                      {React.cloneElement(item.icon, { 'aria-hidden': true, size: 18, className: isDropdownActive(item.dropdown) ? (isDarkMode ? 'text-blue-300' : 'text-blue-600') : (isDarkMode ? 'text-gray-400' : 'text-gray-600') })}
                     </div>
-                    {expanded && <span className="flex-1 text-left text-sm">{item.label}</span>}
-                    {expanded && (
-                      <div className={`transition-transform duration-200 ${openDropdown === item.label ? 'rotate-180' : ''
-                        }`}>
-                        <ChevronDown size={14} aria-hidden="true" />
-                      </div>
-                    )}
+                    {expanded && <span className="flex-1 text-left text-sm truncate">{item.label}</span>}
+                    {expanded && <ChevronDown size={14} aria-hidden="true" className={`transition-transform duration-200 shrink-0 ${openDropdown === item.label ? 'rotate-180' : ''}`} />}
                   </button>
                   {openDropdown === item.label && expanded && (
                     <div
@@ -185,49 +162,43 @@ const Sidebar = ({ expanded, setExpanded, onToggle }) => {
               ) : item.action ? (
                 <button
                   onClick={() => handleMenuClick(item)}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isDarkMode
-                      ? 'hover:bg-gray-800/30 text-gray-300 hover:text-white'
-                      : 'hover:bg-gray-100/80 text-gray-700 hover:text-gray-900'
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${isDarkMode
+                      ? 'hover:bg-gray-800/50 text-gray-300'
+                      : 'hover:bg-gray-100 text-gray-700'
                     }`}
                   aria-label={`Open ${item.label}`}
                   role="menuitem"
                 >
-                  <div className={`p-1 rounded-md transition-colors ${isDarkMode ? 'bg-gray-700/40' : 'bg-gray-100/60'
-                    }`}>
-                    {React.cloneElement(item.icon, {
-                      'aria-hidden': true,
-                      size: 18
-                    })}
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                    {React.cloneElement(item.icon, { 'aria-hidden': true, size: 18, className: isDarkMode ? 'text-gray-400' : 'text-gray-600' })}
                   </div>
-                  {expanded && <span className="flex-1 text-left text-sm">{item.label}</span>}
+                  {expanded && <span className="flex-1 text-left text-sm truncate">{item.label}</span>}
                 </button>
               ) : (
                 <Link
                   to={item.to}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isActive(item.to)
-                      ? `${isDarkMode
-                        ? 'bg-blue-600/15 text-blue-200 shadow-sm'
-                        : 'bg-blue-50 text-blue-700 shadow-sm'
-                      } font-medium`
-                      : `${isDarkMode
-                        ? 'hover:bg-gray-800/30 text-gray-300 hover:text-white'
-                        : 'hover:bg-gray-100/80 text-gray-700 hover:text-gray-900'
-                      }`
-                    }`}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 relative focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${isActive(item.to)
+                      ? isDarkMode
+                        ? 'bg-blue-500/15 text-blue-200 border-l-2 border-blue-400 -ml-px pl-[11px]'
+                        : 'bg-blue-50 text-blue-800 border-l-2 border-blue-600 -ml-px pl-[11px]'
+                      : isDarkMode
+                        ? 'hover:bg-gray-800/50 text-gray-300'
+                        : 'hover:bg-gray-100 text-gray-700'
+                    } ${isActive(item.to) ? 'font-medium' : ''}`}
                   role="menuitem"
                   aria-current={isActive(item.to) ? 'page' : undefined}
                 >
-                  <div className={`p-1 rounded-md transition-colors ${isActive(item.to)
-                      ? isDarkMode ? 'bg-blue-500/20' : 'bg-blue-100'
-                      : isDarkMode ? 'bg-gray-700/40' : 'bg-gray-100/60'
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-lg shrink-0 ${isActive(item.to)
+                      ? isDarkMode ? 'bg-blue-500/25' : 'bg-blue-100'
+                      : isDarkMode ? 'bg-gray-800' : 'bg-gray-100'
                     }`}>
                     {React.cloneElement(item.icon, {
                       'aria-hidden': true,
                       size: 18,
-                      className: isActive(item.to) ? 'text-blue-500' : ''
+                      className: isActive(item.to) ? (isDarkMode ? 'text-blue-300' : 'text-blue-600') : (isDarkMode ? 'text-gray-400' : 'text-gray-600')
                     })}
                   </div>
-                  {expanded && <span className="flex-1 text-left text-sm">{item.label}</span>}
+                  {expanded && <span className="flex-1 text-left text-sm truncate">{item.label}</span>}
                 </Link>
               )}
             </div>

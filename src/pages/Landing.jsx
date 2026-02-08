@@ -7,19 +7,7 @@ const Landing = () => {
   const { isDarkMode } = useTheme();
 
   useEffect(() => {
-    // SignIn/SignUp functionality commented out - redirect to dashboard instead
-    // Check if there are any registered users
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-
-    if (users.length > 0) {
-      // If users exist, redirect to signin
-      navigate('/signin', { replace: true });
-    } else {
-      // If no users exist, redirect to signup
-      navigate('/signup', { replace: true });
-    }
-
-    // Redirect to dashboard instead
+    // Redirect directly to dashboard
     navigate('/', { replace: true });
   }, [navigate]);
 

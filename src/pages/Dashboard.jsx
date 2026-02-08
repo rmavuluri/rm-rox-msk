@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useTheme } from '../hooks/ThemeContext';
 import api from '../services/api';
 
@@ -80,73 +80,76 @@ const Dashboard = () => {
   // Removed handleKeyDown function - no longer needed
 
   return (
-    <div className="flex flex-col gap-8 mt-2">
-      <style>
-        {`
-          @keyframes slideInFromTop {
-            0% {
-              transform: translateY(-20px);
-              opacity: 0;
-            }
-            100% {
-              transform: translateY(0);
-              opacity: 1;
-            }
-          }
-          
-          .card-enter {
-            animation: slideInFromTop 0.7s ease-out;
-          }
-        `}
-      </style>
-      {/* Modern Professional Dashboard Header */}
-      <div className={`relative overflow-hidden rounded-2xl p-8 ${isDarkMode ? 'bg-gradient-to-br from-gray-800 via-gray-700 to-gray-800 border border-gray-600' : 'bg-gradient-to-br from-white via-gray-50 to-white border border-gray-200'} shadow-lg`}>
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full -translate-y-16 translate-x-16"></div>
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-purple-500 rounded-full translate-y-12 -translate-x-12"></div>
-        </div>
+    <div className="flex flex-col gap-6">
+      {/* Page title */}
+      <div>
+        <h1 className={`text-2xl font-semibold tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          Dashboard
+        </h1>
+        <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          Welcome to your Fulcrum overview
+        </p>
+      </div>
 
-        {/* Header Content */}
-        <div className="relative z-10">
-          <div className="flex items-center gap-4 mb-2">
-            <div className={`p-3 rounded-xl ${isDarkMode ? 'bg-blue-600/20' : 'bg-blue-100'}`}>
-              <svg className={`w-8 h-8 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+      {/* Main card */}
+      <div
+        className={`rounded-xl border ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-white border-gray-200'} shadow-sm overflow-hidden`}
+      >
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6">
+            <div className={`flex items-center justify-center w-12 h-12 rounded-xl shrink-0 ${isDarkMode ? 'bg-blue-500/20' : 'bg-blue-50'}`}>
+              <svg className={`w-6 h-6 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
               </svg>
             </div>
-            <div>
-              <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} tracking-tight`}>
-                Dashboard
-              </h1>
-              <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} mt-1`}>
-                Welcome to your Fulcrum overview
+            <div className="min-w-0">
+              <h2 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Overview
+              </h2>
+              <p className={`text-sm mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Event-driven platform metrics and quick actions
               </p>
             </div>
-          </div>
-
-          {/* Quick Stats Row */}
-          <div className="flex flex-wrap gap-4 mt-6">
-
-
             <button
               onClick={() => handleCardClick('topics')}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all duration-200 hover:scale-105 ${isDarkMode ? 'bg-gray-700/50 text-gray-300 hover:bg-gray-600/50' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+              className={`ml-auto flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors shrink-0 ${isDarkMode
+                ? 'bg-gray-700 text-gray-200 hover:bg-gray-600'
+                : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+              }`}
             >
-              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              <span className="text-sm font-medium">
-                {counts.topics} Topics
-              </span>
+              <span className="w-2 h-2 bg-emerald-500 rounded-full shrink-0" aria-hidden />
+              {counts.topics} Topics
             </button>
-
-
-
           </div>
         </div>
       </div>
 
-      {/* Removed inline card display - now navigating to separate pages */}
+      {/* Quick links / secondary content - reduces empty feel */}
+      <div className={`rounded-xl border p-6 ${isDarkMode ? 'bg-gray-800/30 border-gray-700' : 'bg-white border-gray-200'}`}>
+        <h3 className={`text-sm font-medium mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          Quick actions
+        </h3>
+        <div className="flex flex-wrap gap-3">
+          <Link
+            to="/onboard"
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDarkMode
+              ? 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Onboard Form
+          </Link>
+          <Link
+            to="/onboarding-tracker"
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isDarkMode
+              ? 'bg-gray-700/50 text-gray-300 hover:bg-gray-700'
+              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Onboarding Tracker
+          </Link>
+        </div>
+      </div>
     </div>
   );
 };

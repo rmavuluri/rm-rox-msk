@@ -44,10 +44,11 @@ api.interceptors.response.use(
       // Clear invalid token
       localStorage.removeItem('access_token');
       localStorage.removeItem('session');
-      
-      // Redirect to signin if not already there
-      if (window.location.pathname !== '/signin' && window.location.pathname !== '/signup') {
-        window.location.href = '/signin';
+      // Don't redirect on /onboard or /onboarding-tracker so those pages can still load
+      const path = window.location.pathname || '';
+      const skipRedirect = path === '/onboard' || path.startsWith('/onboarding-tracker');
+      if (!skipRedirect && path !== '/') {
+        window.location.href = '/';
       }
     }
     
@@ -68,5 +69,37 @@ api.interceptors.response.use(
     return Promise.reject(enhancedError);
   }
 );
+
+// ---------------------------------------------------------------------------
+// Onboard form: teams dropdown (GET) and form submit (POST).
+// ---------------------------------------------------------------------------
+
+/**
+ * Get teams for the onboard form dropdown. Call on page load.
+ * @returns {Promise<Array>} List of teams (response.data)
+ */
+export async function getTeams() {
+  const response = await api.get('/teams');
+  const data = response.data || [];
+  return data;
+}
+
+/**
+ * Submit onboard form. One POST to backend; logs request and response.
+ * Backend returns a dummy response for now.
+ * @param {object} payload - Form payload for POST /onboardings
+ * @returns {Promise} Axios response (response.data is backend/dummy response)
+ */
+export async function submitOnboardForm(payload) {
+  const req = {
+    method: 'POST',
+    url: `${api.defaults.baseURL}/onboardings`,
+    data: payload,
+  };
+  console.log('Onboard submit request (req):', req);
+  const response = await api.post('/onboardings', payload);
+  console.log('Onboard submit response (res):', response.data);
+  return response;
+}
 
 export default api; 

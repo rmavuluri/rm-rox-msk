@@ -6,18 +6,12 @@ import LoadingSpinner from './components/LoadingSpinner';
 import { ThemeContextProvider } from './hooks/ThemeContext';
 import { AuthProvider } from './hooks/AuthContext';
 
-// Lazy load all page components for code splitting
+// Lazy load page components for code splitting (OnboardForm loaded directly so /onboard always works)
+import OnboardForm from './pages/OnboardForm.jsx';
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const FulcrumResources = lazy(() => import('./pages/FulcrumResources'));
-const OnboardForm = lazy(() => import('./pages/OnboardForm'));
 const OnboardingTracker = lazy(() => import('./pages/OnboardingTracker'));
-
-const SignUp = lazy(() => import('./pages/SignUp'));
-const SignIn = lazy(() => import('./pages/SignIn'));
 const Landing = lazy(() => import('./pages/Landing'));
-const Profile = lazy(() => import('./pages/Profile.jsx'));
-const ChangePassword = lazy(() => import('./pages/ChangePassword.jsx'));
-
 
 const App = () => {
 
@@ -27,11 +21,6 @@ const App = () => {
         <Router>
           <Suspense fallback={<LoadingSpinner />}>
             <Routes>
-              {/* Public routes */}
-              <Route path="/landing" element={<Landing />} />
-              {<Route path="/signup" element={<SignUp />} />}
-              {<Route path="/signin" element={<SignIn />} />}
-
               {/* Protected routes */}
               <Route path="/" element={
                 <ProtectedRoute>
@@ -61,19 +50,9 @@ const App = () => {
                   </Layout>
                 </ProtectedRoute>
               } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Profile />
-                </ProtectedRoute>
-              } />
-              <Route path="/change-password" element={
-                <ProtectedRoute>
-                  <ChangePassword />
-                </ProtectedRoute>
-              } />
 
               {/* Default redirect */}
-              <Route path="*" element={<Navigate to="/landing" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Suspense>
         </Router>

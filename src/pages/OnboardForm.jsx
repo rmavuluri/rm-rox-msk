@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/ThemeContext';
-import api from '../services/api';
-import { X, ChevronDown } from 'lucide-react';
+import { sampleTeams } from '../data';
+import { submitOnboardForm } from '../services/api';
+import { X, ChevronDown, Search } from 'lucide-react';
 
 const ENVIRONMENTS = ['DEV', 'QA', 'CAP', 'PSP', 'PROD'];
 
@@ -32,6 +33,7 @@ const OnboardForm = () => {
   const [loading, setLoading] = useState(false);
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
   const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
+  const [teamHighlightIndex, setTeamHighlightIndex] = useState(-1);
 
   // Ensure at least one Role ARN row exists
   useEffect(() => {
@@ -40,37 +42,21 @@ const OnboardForm = () => {
     }
   }, []);
 
-  // Fetch teams on component mount
+  // Load teams dropdown from sample data (data.js) on page load
   useEffect(() => {
-    const fetchTeams = async () => {
-      setLoadingTeams(true);
-      try {
-        const res = await api.get('/teams');
-        const teamsData = res.data || [];
-        console.log('Teams fetched:', teamsData); // Debug log
-        setTeams(teamsData);
-        
-        // Auto-populate first team if no team is selected and not in edit mode
-        if (!isEditMode && teamsData.length > 0 && !form.teamName) {
-          const firstTeam = teamsData[0].name;
-          setForm(prev => {
-            const newForm = { ...prev, teamName: firstTeam };
-            // Auto-generate role name from team name
-            if (!prev.roleNameOverride) {
-              newForm.roleName = `role-${firstTeam.toLowerCase().replace(/\s+/g, '-')}`;
-            }
-            return newForm;
-          });
+    setLoadingTeams(true);
+    setTeams(sampleTeams);
+    if (!isEditMode && sampleTeams.length > 0 && !form.teamName) {
+      const firstTeam = sampleTeams[0].name;
+      setForm(prev => {
+        const newForm = { ...prev, teamName: firstTeam };
+        if (!prev.roleNameOverride) {
+          newForm.roleName = `role-${firstTeam.toLowerCase().replace(/\s+/g, '-')}`;
         }
-      } catch (error) {
-        console.error('Failed to fetch teams:', error);
-        console.error('Error details:', error.response?.data); // Debug log
-        setTeams([]);
-      } finally {
-        setLoadingTeams(false);
-      }
-    };
-    fetchTeams();
+        return newForm;
+      });
+    }
+    setLoadingTeams(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -126,10 +112,11 @@ const OnboardForm = () => {
     validateField(name, value);
   };
 
-  // Filter teams based on search query
-  const filteredTeams = teams.filter(team =>
-    team.name.toLowerCase().includes(teamSearchQuery.toLowerCase())
-  );
+  // Filter teams by search query (trimmed, case-insensitive)
+  const searchTrimmed = (teamSearchQuery || '').trim().toLowerCase();
+  const filteredTeams = searchTrimmed
+    ? teams.filter((team) => team.name.toLowerCase().includes(searchTrimmed))
+    : teams;
 
   // Handle team selection
   const handleTeamSelect = (teamName) => {
@@ -142,12 +129,50 @@ const OnboardForm = () => {
     });
     setTeamSearchQuery('');
     setIsTeamDropdownOpen(false);
-    
-    // Clear error when team is selected
+    setTeamHighlightIndex(-1);
     if (errors.teamName) {
       setErrors(prev => ({ ...prev, teamName: undefined }));
     }
     setTouched(prev => ({ ...prev, teamName: true }));
+  };
+
+  // Reset highlight when filter results change
+  useEffect(() => {
+    if (isTeamDropdownOpen) {
+      setTeamHighlightIndex(filteredTeams.length > 0 ? 0 : -1);
+    }
+  }, [isTeamDropdownOpen, teamSearchQuery]);
+
+  // Keyboard navigation in team dropdown
+  const handleTeamKeyDown = (e) => {
+    if (!isTeamDropdownOpen) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setIsTeamDropdownOpen(true);
+        setTeamHighlightIndex(filteredTeams.length > 0 ? 0 : -1);
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      setIsTeamDropdownOpen(false);
+      setTeamSearchQuery('');
+      setTeamHighlightIndex(-1);
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setTeamHighlightIndex((i) => (i < filteredTeams.length - 1 ? i + 1 : i));
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setTeamHighlightIndex((i) => (i > 0 ? i - 1 : 0));
+      return;
+    }
+    if (e.key === 'Enter' && filteredTeams.length > 0 && teamHighlightIndex >= 0 && filteredTeams[teamHighlightIndex]) {
+      e.preventDefault();
+      handleTeamSelect(filteredTeams[teamHighlightIndex].name);
+    }
   };
 
   // Close dropdown when clicking outside
@@ -353,22 +378,7 @@ const OnboardForm = () => {
     
     setLoading(true);
     try {
-      // Call submit-intake API to log the request
-      console.log('Submitting intake form data:', submitData);
-      try {
-        const intakeResponse = await api.post('/submit-intake', submitData);
-        console.log('Intake submitted successfully:', intakeResponse.data);
-      } catch (intakeError) {
-        // Log error but don't fail the form submission
-        console.warn('Submit-intake API call failed (non-blocking):', intakeError);
-      }
-      
-      // Then save to onboardings
-      if (isEditMode) {
-        await api.put(`/onboardings/${editId || editData?.id}`, submitData);
-      } else {
-        await api.post('/onboardings', submitData);
-      }
+      await submitOnboardForm(submitData);
       navigate('/');
     } catch (error) {
       console.error('Failed to save onboarding:', error);
@@ -384,18 +394,7 @@ const OnboardForm = () => {
 
   const handleCancel = () => navigate(-1);
 
-  // Show full page loader when initially loading teams or submitting form
-  if (loadingTeams && teams.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]" role="status" aria-live="polite">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Loading form...</p>
-        </div>
-      </div>
-    );
-  }
-
+  // Always show the form so the page loads immediately; teams load in the background
   return (
     <div className="relative">
       {/* Loading Overlay */}
@@ -513,42 +512,54 @@ const OnboardForm = () => {
               )}
             </div>
 
-            {/* Team Name */}
+            {/* Team Name – searchable dropdown */}
             <div>
               <label htmlFor="teamName" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                 Team Name <span className="text-red-500" aria-label="required">*</span>
               </label>
               <div className="relative" data-team-dropdown>
                 <div className="relative">
+                  {isTeamDropdownOpen && (
+                    <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+                      <Search size={16} className={isDarkMode ? 'text-gray-400' : 'text-gray-500'} aria-hidden />
+                    </div>
+                  )}
                   <input
                     type="text"
                     id="teamName"
                     name="teamName"
+                    autoComplete="off"
                     value={isTeamDropdownOpen ? teamSearchQuery : form.teamName}
                     onChange={(e) => {
-                      if (isTeamDropdownOpen) {
-                        setTeamSearchQuery(e.target.value);
-                      } else {
-                        setIsTeamDropdownOpen(true);
-                        setTeamSearchQuery(e.target.value);
-                      }
+                      const v = e.target.value;
+                      setTeamSearchQuery(v);
+                      if (!isTeamDropdownOpen) setIsTeamDropdownOpen(true);
                     }}
                     onFocus={() => {
                       setIsTeamDropdownOpen(true);
                       setTeamSearchQuery('');
                     }}
-                    onBlur={(e) => {
-                      // Delay to allow click on dropdown item to register
+                    onKeyDown={handleTeamKeyDown}
+                    onBlur={() => {
                       setTimeout(() => {
                         if (!document.activeElement?.closest('[data-team-dropdown]')) {
+                          setIsTeamDropdownOpen(false);
                           setTouched(prev => ({ ...prev, teamName: true }));
                           validateField('teamName', form.teamName);
                         }
                       }, 200);
                     }}
                     disabled={loadingTeams}
-                    placeholder={loadingTeams ? 'Loading teams...' : form.teamName || 'Select Team'}
+                    placeholder={
+                      loadingTeams
+                        ? 'Loading teams...'
+                        : isTeamDropdownOpen
+                          ? 'Search teams...'
+                          : form.teamName || 'Search or select team'
+                    }
                     className={`w-full rounded-lg p-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      isTeamDropdownOpen ? 'pl-9' : 'pl-2.5'
+                    } ${
                       isDarkMode
                         ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700 disabled:opacity-50'
                         : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500 disabled:opacity-50'
@@ -557,57 +568,65 @@ const OnboardForm = () => {
                     aria-describedby={errors.teamName ? 'teamName-error' : undefined}
                     aria-expanded={isTeamDropdownOpen}
                     aria-haspopup="listbox"
+                    aria-activedescendant={filteredTeams[teamHighlightIndex] ? `team-option-${filteredTeams[teamHighlightIndex].id}` : undefined}
                     required
                   />
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center gap-2">
                     {loadingTeams ? (
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                     ) : (
-                      <ChevronDown 
-                        size={16} 
+                      <ChevronDown
+                        size={16}
                         className={`transition-transform ${isTeamDropdownOpen ? 'rotate-180' : ''} ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}
                         aria-hidden="true"
                       />
                     )}
                   </div>
                 </div>
-                
-                {/* Dropdown List */}
+
+                {/* Dropdown list with search results */}
                 {isTeamDropdownOpen && !loadingTeams && (
-                  <div className={`absolute z-50 w-full mt-1 rounded-lg shadow-lg border max-h-60 overflow-auto ${
-                    isDarkMode
-                      ? 'bg-gray-800 border-gray-700'
-                      : 'bg-white border-gray-200'
-                  }`}>
-                    {filteredTeams.length > 0 ? (
-                      <ul role="listbox" className="py-1">
-                        {filteredTeams.map((team) => (
+                  <div
+                    className={`absolute z-50 w-full mt-1 rounded-lg shadow-lg border overflow-hidden ${
+                      isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'
+                    }`}
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    <div className={`sticky top-0 px-3 py-2 text-xs ${isDarkMode ? 'text-gray-400 bg-gray-800' : 'text-gray-500 bg-gray-50'} border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                      {searchTrimmed ? `${filteredTeams.length} team${filteredTeams.length !== 1 ? 's' : ''} found` : 'Type to search'}
+                    </div>
+                    <ul role="listbox" className="py-1 max-h-60 overflow-auto">
+                      {filteredTeams.length > 0 ? (
+                        filteredTeams.map((team, idx) => (
                           <li
                             key={team.id}
+                            id={`team-option-${team.id}`}
                             role="option"
                             onClick={() => handleTeamSelect(team.name)}
                             className={`px-4 py-2 cursor-pointer transition-colors ${
-                              form.teamName === team.name
+                              idx === teamHighlightIndex
                                 ? isDarkMode
-                                  ? 'bg-blue-600/20 text-blue-200'
-                                  : 'bg-blue-50 text-blue-700'
-                                : isDarkMode
-                                  ? 'hover:bg-gray-700 text-gray-200'
-                                  : 'hover:bg-gray-100 text-gray-800'
+                                  ? 'bg-blue-600/30 text-blue-200'
+                                  : 'bg-blue-100 text-blue-800'
+                                : form.teamName === team.name
+                                  ? isDarkMode
+                                    ? 'bg-blue-600/20 text-blue-200'
+                                    : 'bg-blue-50 text-blue-700'
+                                  : isDarkMode
+                                    ? 'hover:bg-gray-700 text-gray-200'
+                                    : 'hover:bg-gray-100 text-gray-800'
                             }`}
                             aria-selected={form.teamName === team.name}
                           >
                             {team.name}
                           </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className={`px-4 py-3 text-sm ${
-                        isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                      }`}>
-                        No teams found
-                      </div>
-                    )}
+                        ))
+                      ) : (
+                        <li className={`px-4 py-3 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          No teams found. Try a different search.
+                        </li>
+                      )}
+                    </ul>
                   </div>
                 )}
               </div>

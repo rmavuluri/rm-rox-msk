@@ -1,14 +1,11 @@
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig(({ mode }) => {
-  const env = loadEnv(mode, process.cwd(), '')
   return {
     plugins: [react()],
     base: '/', // Set base path for deployment
     define: {
-      'process.env.REACT_APP_OKTA_ISSUER': JSON.stringify(env.REACT_APP_OKTA_ISSUER),
-      'process.env.REACT_APP_OKTA_CLIENT_ID': JSON.stringify(env.REACT_APP_OKTA_CLIENT_ID),
       'process.env.NODE_ENV': JSON.stringify(mode)
     },
     server: {
@@ -38,8 +35,7 @@ export default defineConfig(({ mode }) => {
           // Simplified chunk splitting
           manualChunks: {
             vendor: ['react', 'react-dom'],
-            router: ['react-router-dom'],
-            okta: ['@okta/okta-auth-js', '@okta/okta-react']
+            router: ['react-router-dom']
           }
         }
       },

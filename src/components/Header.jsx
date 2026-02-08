@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, LogOut, User, Shield, Settings, Key, ChevronDown } from 'lucide-react';
+import { Sun, Moon, LogOut, User, ChevronDown } from 'lucide-react';
 import { useTheme } from '../hooks/ThemeContext';
 import { useAuth } from '../hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
@@ -50,19 +50,7 @@ const Header = () => {
 
   const handleLogout = () => {
     logout();
-    // SignIn functionality commented out - redirect to landing instead
-    // navigate('/signin');
-    navigate('/landing');
-  };
-
-  const handleProfile = () => {
-    setMenuOpen(false);
-    navigate('/profile');
-  };
-
-  const handleChangePassword = () => {
-    setMenuOpen(false);
-    navigate('/change-password');
+    navigate('/');
   };
 
   const handleThemeToggle = () => {
@@ -163,32 +151,6 @@ const Header = () => {
                   </div>
 
                 </div>
-              </div>
-
-              {/* Menu Items */}
-              <div className="py-2">
-                <button
-                  onClick={handleProfile}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-all duration-200 hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${isDarkMode
-                    ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                    : 'text-gray-700 hover:bg-gray-100/80 hover:text-gray-900'
-                    }`}
-                  role="menuitem"
-                >
-                  <User size={16} className="flex-shrink-0" aria-hidden="true" />
-                  <span>Profile</span>
-                </button>
-                <button
-                  onClick={handleChangePassword}
-                  className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-all duration-200 hover:bg-opacity-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset ${isDarkMode
-                    ? 'text-gray-300 hover:bg-gray-700/50 hover:text-white'
-                    : 'text-gray-700 hover:bg-gray-100/80 hover:text-gray-900'
-                    }`}
-                  role="menuitem"
-                >
-                  <Key size={16} className="flex-shrink-0" aria-hidden="true" />
-                  <span>Change Password</span>
-                </button>
               </div>
 
               {/* Divider */}
