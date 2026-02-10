@@ -7,6 +7,20 @@ import { X, ChevronDown, Search } from 'lucide-react';
 
 const ENVIRONMENTS = ['DEV', 'QA', 'CAP', 'PSP', 'PROD'];
 
+// Single source of truth for initial form: blank or from editData
+const getInitialForm = (editData) => ({
+  intakeId: editData?.intakeId ?? '',
+  topicName: editData?.topicName ?? '',
+  appId: editData?.appId ?? '',
+  roleARNs: Array.isArray(editData?.roleARNs) && editData.roleARNs.length > 0
+    ? editData.roleARNs.map((r) => ({ env: r.env ?? '', arn: r.arn ?? '' }))
+    : [{ env: '', arn: '' }],
+  emailAddress: editData?.emailAddresses?.[0] ?? editData?.emailAddress ?? '',
+  teamName: editData?.teamName ?? '',
+  roleName: editData?.roleName ?? '',
+  roleNameOverride: editData?.roleNameOverride ?? false,
+});
+
 const OnboardForm = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -15,16 +29,7 @@ const OnboardForm = () => {
   const editId = location.state?.editId;
   const isEditMode = !!editData || !!editId;
 
-  const [form, setForm] = useState({
-    intakeId: editData?.intakeId || '',
-    topicName: editData?.topicName || '',
-    appId: editData?.appId || '',
-    roleARNs: editData?.roleARNs || [{ env: '', arn: '' }],
-    emailAddress: editData?.emailAddresses?.[0] || editData?.emailAddress || '',
-    teamName: editData?.teamName || '',
-    roleName: editData?.roleName || '',
-    roleNameOverride: editData?.roleNameOverride || false,
-  });
+  const [form, setForm] = useState(() => getInitialForm(editData));
 
   const [teams, setTeams] = useState([]);
   const [loadingTeams, setLoadingTeams] = useState(false);
@@ -34,6 +39,7 @@ const OnboardForm = () => {
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
   const [isTeamDropdownOpen, setIsTeamDropdownOpen] = useState(false);
   const [teamHighlightIndex, setTeamHighlightIndex] = useState(-1);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Ensure at least one Role ARN row exists
   useEffect(() => {
@@ -42,13 +48,13 @@ const OnboardForm = () => {
     }
   }, []);
 
-  // Load teams dropdown from sample data (data.js) on page load
+  // Load teams dropdown from sample data (data.js) on page load; prefill team/role only when starting blank
   useEffect(() => {
     setLoadingTeams(true);
     setTeams(sampleTeams);
     if (!isEditMode && sampleTeams.length > 0 && !form.teamName) {
       const firstTeam = sampleTeams[0].name;
-      setForm(prev => {
+      setForm((prev) => {
         const newForm = { ...prev, teamName: firstTeam };
         if (!prev.roleNameOverride) {
           newForm.roleName = `role-${firstTeam.toLowerCase().replace(/\s+/g, '-')}`;
@@ -392,7 +398,36 @@ const OnboardForm = () => {
     }
   };
 
-  const handleCancel = () => navigate(-1);
+  const resetFormState = () => {
+    setForm(getInitialForm());
+    setErrors({});
+    setTouched({});
+    setTeamSearchQuery('');
+    setIsTeamDropdownOpen(false);
+    setTeamHighlightIndex(-1);
+  };
+
+  const handleCancel = () => setShowCancelConfirm(true);
+
+  const handleCancelConfirmYes = () => {
+    setShowCancelConfirm(false);
+    navigate('/', { replace: true });
+  };
+
+  const handleCancelConfirmNo = () => {
+    setShowCancelConfirm(false);
+    resetFormState();
+  };
+
+  // Close cancel confirmation on Escape
+  useEffect(() => {
+    if (!showCancelConfirm) return;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setShowCancelConfirm(false);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [showCancelConfirm]);
 
   // Always show the form so the page loads immediately; teams load in the background
   return (
@@ -408,6 +443,58 @@ const OnboardForm = () => {
             <p className={`text-sm mt-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
               Please wait while we process your request
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Cancel confirmation modal */}
+      {showCancelConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-confirm-title"
+          aria-describedby="cancel-confirm-desc"
+        >
+          <div
+            className={`absolute inset-0 ${isDarkMode ? 'bg-black/60' : 'bg-black/40'}`}
+            onClick={() => setShowCancelConfirm(false)}
+            aria-hidden
+          />
+          <div
+            className={`relative w-full max-w-md rounded-xl shadow-2xl ${isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-white border border-gray-200'}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`p-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h2
+                id="cancel-confirm-title"
+                className={`text-lg font-semibold ${isDarkMode ? 'text-gray-100' : 'text-gray-800'}`}
+              >
+                Leave this form?
+              </h2>
+              <p
+                id="cancel-confirm-desc"
+                className={`mt-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}
+              >
+                Your changes will not be saved. Go to Dashboard or stay and clear the form.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 p-6">
+              <button
+                type="button"
+                onClick={handleCancelConfirmNo}
+                className={`px-5 py-2.5 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-100 focus:ring-offset-gray-800' : 'bg-gray-200 hover:bg-gray-300 text-gray-800 focus:ring-offset-white'}`}
+              >
+                Stay & clear form
+              </button>
+              <button
+                type="button"
+                onClick={handleCancelConfirmYes}
+                className={`px-5 py-2.5 rounded-lg font-medium bg-blue-600 hover:bg-blue-700 text-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isDarkMode ? 'focus:ring-offset-gray-800' : 'focus:ring-offset-white'}`}
+              >
+                Go to Dashboard
+              </button>
+            </div>
           </div>
         </div>
       )}
