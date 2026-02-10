@@ -1,24 +1,49 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../hooks/ThemeContext';
 import { sampleTeams } from '../data';
 import { submitOnboardForm } from '../services/api';
 import { X, ChevronDown, Search } from 'lucide-react';
 
-const ENVIRONMENTS = ['DEV', 'QA', 'CAP', 'PSP', 'PROD'];
+const ENVIRONMENTS = ['DEV', 'QA1', 'QA2', 'CAP', 'PSP', 'PROD'];
+
+const emptyEnvConfig = () => ({ topic: '', principals: '', read: false, write: false });
+
+const getInitialEnvironments = (editData) => {
+  const keys = ['DEV', 'QA1', 'QA2', 'CAP', 'PSP', 'PROD'];
+  const envs = {};
+  keys.forEach((k) => {
+    const key = k.toLowerCase();
+    const from = editData?.environments?.[key];
+    envs[k] = from
+      ? {
+          topic: from.topic ?? '',
+          principals: Array.isArray(from.principals) ? from.principals.join(', ') : (from.principals ?? ''),
+          read: from.topic_permissions?.read ?? false,
+          write: from.topic_permissions?.write ?? false,
+        }
+      : emptyEnvConfig();
+  });
+  return envs;
+};
+
+// Which environments the user has added (only these show topic/principals/read/write)
+const getInitialAddedEnvironments = (editData) => {
+  if (!editData?.environments || typeof editData.environments !== 'object') return [];
+  return ENVIRONMENTS.filter((envKey) => editData.environments[envKey.toLowerCase()] != null);
+};
 
 // Single source of truth for initial form: blank or from editData
 const getInitialForm = (editData) => ({
-  intakeId: editData?.intakeId ?? '',
-  topicName: editData?.topicName ?? '',
-  appId: editData?.appId ?? '',
-  roleARNs: Array.isArray(editData?.roleARNs) && editData.roleARNs.length > 0
-    ? editData.roleARNs.map((r) => ({ env: r.env ?? '', arn: r.arn ?? '' }))
-    : [{ env: '', arn: '' }],
-  emailAddress: editData?.emailAddresses?.[0] ?? editData?.emailAddress ?? '',
-  teamName: editData?.teamName ?? '',
-  roleName: editData?.roleName ?? '',
-  roleNameOverride: editData?.roleNameOverride ?? false,
+  intakeId: editData?.intakeId ?? editData?.intake_id ?? '',
+  appId: editData?.appId ?? editData?.app_id ?? '',
+  teamName: editData?.teamName ?? editData?.team_name ?? '',
+  appname: editData?.appname ?? editData?.roleName ?? '',
+  environments: getInitialEnvironments(editData),
+  addedEnvironments: getInitialAddedEnvironments(editData),
+  emails: Array.isArray(editData?.email) && editData.email.length > 0
+    ? [...editData.email]
+    : (editData?.emailAddresses?.length ? [...editData.emailAddresses] : ['']),
 });
 
 const OnboardForm = () => {
@@ -41,74 +66,95 @@ const OnboardForm = () => {
   const [teamHighlightIndex, setTeamHighlightIndex] = useState(-1);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
-  // Ensure at least one Role ARN row exists
-  useEffect(() => {
-    if (form.roleARNs.length === 0) {
-      setForm(prev => ({ ...prev, roleARNs: [{ env: '', arn: '' }] }));
-    }
-  }, []);
-
-  // Load teams dropdown from sample data (data.js) on page load; prefill team/role only when starting blank
+  // Load teams dropdown from sample data (data.js) on page load; prefill team when starting blank
   useEffect(() => {
     setLoadingTeams(true);
     setTeams(sampleTeams);
     if (!isEditMode && sampleTeams.length > 0 && !form.teamName) {
-      const firstTeam = sampleTeams[0].name;
-      setForm((prev) => {
-        const newForm = { ...prev, teamName: firstTeam };
-        if (!prev.roleNameOverride) {
-          newForm.roleName = `role-${firstTeam.toLowerCase().replace(/\s+/g, '-')}`;
-        }
-        return newForm;
-      });
+      setForm((prev) => ({ ...prev, teamName: sampleTeams[0].name }));
     }
     setLoadingTeams(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-populate role name when team name changes (if override is not checked)
-  // This effect ensures role name updates whenever team name changes
-  useEffect(() => {
-    if (form.teamName && !form.roleNameOverride) {
-      // Generate role name from team name
-      const roleName = `role-${form.teamName.toLowerCase().replace(/\s+/g, '-')}`;
-      setForm(prev => ({ ...prev, roleName }));
-    }
-  }, [form.teamName, form.roleNameOverride]);
-
   // Handle field changes
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    if (name === 'roleNameOverride') {
-      setForm(prev => {
-        const newForm = { ...prev, roleNameOverride: checked };
-        // When override is unchecked, regenerate role name from team name
-        if (!checked && prev.teamName) {
-          newForm.roleName = `role-${prev.teamName.toLowerCase().replace(/\s+/g, '-')}`;
-        }
-        return newForm;
-      });
-    } else if (name === 'teamName') {
-      // When team name changes, update role name if override is not checked
-      setForm(prev => {
-        const newForm = { ...prev, teamName: value };
-        if (!prev.roleNameOverride) {
-          newForm.roleName = `role-${value.toLowerCase().replace(/\s+/g, '-')}`;
-        }
-        return newForm;
-      });
-    } else {
-      setForm(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value,
-      }));
-    }
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value,
+    }));
+    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
+  };
 
-    // Clear error when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: undefined }));
+  // Environment field change
+  const handleEnvChange = (envKey, field, value) => {
+    setForm((prev) => ({
+      ...prev,
+      environments: {
+        ...prev.environments,
+        [envKey]: { ...(prev.environments[envKey] || emptyEnvConfig()), [field]: value },
+      },
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[`env_${envKey}`];
+      delete next[`env_${envKey}_topic`];
+      delete next[`env_${envKey}_principals`];
+      return next;
+    });
+  };
+
+  // Add an environment to the list (show its topic/principals/read/write block)
+  const addEnvironment = (envKey) => {
+    if (!envKey || form.addedEnvironments.includes(envKey)) return;
+    setForm((prev) => ({
+      ...prev,
+      addedEnvironments: [...prev.addedEnvironments, envKey].sort((a, b) => ENVIRONMENTS.indexOf(a) - ENVIRONMENTS.indexOf(b)),
+      environments: {
+        ...prev.environments,
+        [envKey]: prev.environments[envKey] || emptyEnvConfig(),
+      },
+    }));
+    if (errors.environments) setErrors((prev) => ({ ...prev, environments: undefined }));
+  };
+
+  // Remove an environment from the list
+  const removeEnvironment = (envKey) => {
+    setForm((prev) => ({
+      ...prev,
+      addedEnvironments: prev.addedEnvironments.filter((e) => e !== envKey),
+    }));
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next[`env_${envKey}`];
+      delete next[`env_${envKey}_topic`];
+      delete next[`env_${envKey}_principals`];
+      delete next.environments;
+      return next;
+    });
+  };
+
+  // Email list change
+  const setEmailAt = (index, value) => {
+    setForm((prev) => {
+      const emails = [...prev.emails];
+      emails[index] = value;
+      return { ...prev, emails };
+    });
+    if (errors.emails || errors[`email_${index}`]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next.emails;
+        delete next[`email_${index}`];
+        return next;
+      });
     }
+  };
+  const addEmail = () => setForm((prev) => ({ ...prev, emails: [...prev.emails, ''] }));
+  const removeEmail = (index) => {
+    if (form.emails.length <= 1) return;
+    setForm((prev) => ({ ...prev, emails: prev.emails.filter((_, i) => i !== index) }));
   };
 
   // Handle blur for validation
@@ -126,19 +172,11 @@ const OnboardForm = () => {
 
   // Handle team selection
   const handleTeamSelect = (teamName) => {
-    setForm(prev => {
-      const newForm = { ...prev, teamName };
-      if (!prev.roleNameOverride) {
-        newForm.roleName = `role-${teamName.toLowerCase().replace(/\s+/g, '-')}`;
-      }
-      return newForm;
-    });
+    setForm(prev => ({ ...prev, teamName }));
     setTeamSearchQuery('');
     setIsTeamDropdownOpen(false);
     setTeamHighlightIndex(-1);
-    if (errors.teamName) {
-      setErrors(prev => ({ ...prev, teamName: undefined }));
-    }
+    if (errors.teamName) setErrors(prev => ({ ...prev, teamName: undefined }));
     setTouched(prev => ({ ...prev, teamName: true }));
   };
 
@@ -202,196 +240,124 @@ const OnboardForm = () => {
   // Validate single field
   const validateField = (name, value) => {
     const newErrors = { ...errors };
-    
     if (name === 'appId') {
-      if (!value || value.trim() === '') {
+      if (!value || String(value).trim() === '') {
         newErrors.appId = 'App Id is required.';
-      } else if (!/^\d+$/.test(value)) {
+      } else if (!/^\d+$/.test(String(value))) {
         newErrors.appId = 'App Id must contain only numbers.';
       } else {
         delete newErrors.appId;
       }
-    } else if (name === 'intakeId' || name === 'topicName' || name === 'teamName') {
-      if (!value || value.trim() === '') {
-        newErrors[name] = `${name.charAt(0).toUpperCase() + name.slice(1).replace(/([A-Z])/g, ' $1')} is required.`;
+    } else if (name === 'intakeId' || name === 'teamName' || name === 'appname') {
+      if (!value || String(value).trim() === '') {
+        const label = name === 'appname' ? 'App name' : name === 'intakeId' ? 'Intake ID' : 'Team Name';
+        newErrors[name] = `${label} is required.`;
       } else {
         delete newErrors[name];
       }
-    } else if (name === 'emailAddress') {
-      if (!value || value.trim() === '') {
-        newErrors.emailAddress = 'Email Address is required.';
-      } else if (!isValidEmail(value.trim())) {
-        newErrors.emailAddress = 'Please enter a valid email address.';
+    } else if (name.startsWith('email_')) {
+      const idx = name.replace('email_', '');
+      if (value && value.trim() !== '' && !isValidEmail(value.trim())) {
+        newErrors[name] = 'Please enter a valid email address.';
       } else {
-        delete newErrors.emailAddress;
-      }
-    } else if (name === 'roleName' && form.roleNameOverride) {
-      if (!value || value.trim() === '') {
-        newErrors.roleName = 'Role Name is required when override is enabled.';
-      } else {
-        delete newErrors.roleName;
+        delete newErrors[name];
       }
     }
-    
     setErrors(newErrors);
   };
 
-  // Handle Role ARN changes (environment and ARN)
-  const handleRoleARNChange = (index, field, value) => {
-    setForm(prev => {
-      const roleARNs = prev.roleARNs.map((row, i) =>
-        i === index ? { ...row, [field]: value } : row
-      );
-      return { ...prev, roleARNs };
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  // Submit button enabled only when all mandatory fields are valid
+  const isFormValid = useMemo(() => {
+    if (!form.intakeId.trim() || !form.appId.trim() || !/^\d+$/.test(form.appId) || !form.teamName || !form.appname.trim()) return false;
+    const added = form.addedEnvironments || [];
+    if (added.length === 0) return false;
+    const allEnvsValid = added.every((envKey) => {
+      const env = form.environments[envKey] || emptyEnvConfig();
+      const topic = (env.topic || '').trim();
+      const principals = (env.principals || '').trim();
+      return topic !== '' && principals !== '' && (env.read || env.write);
     });
-    
-    // Clear errors
-    if (errors.roleARNs || errors.roleARNsRows) {
-      const newErrors = { ...errors };
-      if (errors.roleARNsRows && errors.roleARNsRows[index]) {
-        delete newErrors.roleARNsRows[index];
-      }
-      if (errors.roleARNs) {
-        delete newErrors.roleARNs;
-      }
-      setErrors(newErrors);
-    }
-  };
-
-  // Handle Role ARN blur for validation and auto-add new row
-  const handleRoleARNBlur = (index) => {
-    const row = form.roleARNs[index];
-    const newErrors = { ...errors };
-    
-    // Validate this row
-    if (row.env && !row.arn) {
-      if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
-      newErrors.roleARNsRows[index] = 'ARN is required for this environment.';
-    } else if (!row.env && row.arn) {
-      if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
-      newErrors.roleARNsRows[index] = 'Please select an environment.';
-    } else {
-      if (newErrors.roleARNsRows) {
-        delete newErrors.roleARNsRows[index];
-      }
-    }
-    
-    setErrors(newErrors);
-    
-    // Add new row if both env and arn are filled and this is the last row
-    if (row.env && row.arn && index === form.roleARNs.length - 1) {
-      const usedEnvs = form.roleARNs.map((r) => r.env).filter(Boolean);
-      if (usedEnvs.length < ENVIRONMENTS.length) {
-        setForm(prev => ({
-          ...prev,
-          roleARNs: [...prev.roleARNs, { env: '', arn: '' }],
-        }));
-      }
-    }
-  };
-
-  // Remove Role ARN row
-  const removeRoleARN = (index) => {
-    if (form.roleARNs.length > 1) {
-      setForm(prev => ({
-        ...prev,
-        roleARNs: prev.roleARNs.filter((_, i) => i !== index)
-      }));
-    }
-  };
-
-
-  // Validate email format
-  const isValidEmail = (email) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
+    if (!allEnvsValid) return false;
+    const validEmails = (form.emails || []).map((e) => e.trim()).filter(Boolean).filter(isValidEmail);
+    return validEmails.length > 0;
+  }, [form.intakeId, form.appId, form.teamName, form.appname, form.addedEnvironments, form.environments, form.emails]);
 
   // Form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
     const newErrors = {};
-    
-    // Validate required fields
-    if (!form.intakeId.trim()) {
-      newErrors.intakeId = 'Intake ID is required.';
-    }
-    if (!form.topicName.trim()) {
-      newErrors.topicName = 'Topic Name is required.';
-    }
+
+    if (!form.intakeId.trim()) newErrors.intakeId = 'Intake ID is required.';
     if (!form.appId.trim()) {
       newErrors.appId = 'App Id is required.';
     } else if (!/^\d+$/.test(form.appId)) {
       newErrors.appId = 'App Id must contain only numbers.';
     }
-    if (!form.teamName) {
-      newErrors.teamName = 'Team Name is required.';
-    }
-    if (form.roleNameOverride && !form.roleName.trim()) {
-      newErrors.roleName = 'Role Name is required when override is enabled.';
-    }
-    
-    // Validate Role ARNs - at least one required, all filled, no duplicate envs
-    const filledRoleARNs = form.roleARNs.filter((row) => row.env && row.arn);
-    if (filledRoleARNs.length === 0) {
-      newErrors.roleARNs = 'Please enter at least one environment ARN.';
+    if (!form.teamName) newErrors.teamName = 'Team Name is required.';
+    if (!form.appname.trim()) newErrors.appname = 'App name is required.';
+
+    // Environments: at least one added; for each added env, topic + principals + (read or write) required
+    const added = form.addedEnvironments || [];
+    if (added.length === 0) {
+      newErrors.environments = 'Please add at least one environment.';
     } else {
-      form.roleARNs.forEach((row, idx) => {
-        if (row.env && !row.arn) {
-          if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
-          newErrors.roleARNsRows[idx] = 'ARN is required for this environment.';
-        }
-        if (!row.env && row.arn) {
-          if (!newErrors.roleARNsRows) newErrors.roleARNsRows = {};
-          newErrors.roleARNsRows[idx] = 'Please select an environment.';
+      added.forEach((envKey) => {
+        const env = form.environments[envKey] || emptyEnvConfig();
+        const topic = (env.topic || '').trim();
+        const principals = (env.principals || '').trim();
+        if (!topic) newErrors[`env_${envKey}_topic`] = 'Topic name is required.';
+        if (!principals) newErrors[`env_${envKey}_principals`] = 'Principals (ARNs) are required.';
+        if (!env.read && !env.write) {
+          newErrors[`env_${envKey}`] = 'At least one of Read or Write permission must be selected.';
         }
       });
     }
-    // Duplicate env check
-    const envSet = new Set();
-    for (const row of filledRoleARNs) {
-      if (envSet.has(row.env)) {
-        newErrors.roleARNs = 'Duplicate environment selected.';
-        break;
-      }
-      envSet.add(row.env);
+
+    // Emails: at least one valid email required
+    const validEmails = (form.emails || []).map((e) => e.trim()).filter(Boolean).filter(isValidEmail);
+    const invalidIndices = (form.emails || []).map((e, i) => (!e.trim() ? -1 : isValidEmail(e.trim()) ? -1 : i)).filter((i) => i >= 0);
+    if (validEmails.length === 0) {
+      newErrors.emails = (form.emails || []).some((e) => e.trim() !== '') ? 'Please enter at least one valid email address.' : 'At least one email address is required.';
     }
-    
-    // Validate Email Address - required and must be valid
-    if (!form.emailAddress || form.emailAddress.trim() === '') {
-      newErrors.emailAddress = 'Email Address is required.';
-    } else if (!isValidEmail(form.emailAddress.trim())) {
-      newErrors.emailAddress = 'Please enter a valid email address.';
-    }
-    
+    invalidIndices.forEach((i) => {
+      newErrors[`email_${i}`] = 'Please enter a valid email address.';
+    });
+
     setErrors(newErrors);
-    
-    if (Object.keys(newErrors).length > 0) {
-      return;
-    }
-    
-    // Prepare data for submission - save only filled roleARNs
+    if (Object.keys(newErrors).length > 0) return;
+
+    const environmentsPayload = {};
+    (form.addedEnvironments || []).forEach((envKey) => {
+      const env = form.environments[envKey] || emptyEnvConfig();
+      const topic = (env.topic || '').trim();
+      const principalsStr = (env.principals || '').trim();
+      const key = envKey.toLowerCase();
+      const principals = principalsStr ? principalsStr.split(',').map((p) => p.trim()).filter(Boolean) : [];
+      environmentsPayload[key] = {
+        topic,
+        principals,
+        topic_permissions: { read: !!env.read, write: !!env.write },
+      };
+    });
+
     const submitData = {
-      intakeId: form.intakeId.trim(),
-      topicName: form.topicName.trim(),
-      appId: form.appId.trim(),
-      roleARNs: filledRoleARNs,
-      emailAddresses: [form.emailAddress.trim()],
-      teamName: form.teamName,
-      roleName: form.roleName.trim(),
-      roleNameOverride: form.roleNameOverride,
+      intake_id: form.intakeId.trim(),
+      app_id: form.appId.trim(),
+      team_name: form.teamName,
+      appname: form.appname.trim(),
+      environments: environmentsPayload,
+      email: validEmails,
     };
-    
+
     setLoading(true);
     try {
       await submitOnboardForm(submitData);
       navigate('/');
     } catch (error) {
       console.error('Failed to save onboarding:', error);
-      const errorMsg = error.response?.data?.detail || 
-                      error.response?.data?.message || 
-                      error.message || 
-                      'Failed to save onboarding';
+      const errorMsg = error.response?.data?.detail || error.response?.data?.message || error.message || 'Failed to save onboarding';
       alert(errorMsg);
     } finally {
       setLoading(false);
@@ -536,34 +502,6 @@ const OnboardForm = () => {
               {errors.intakeId && (
                 <div id="intakeId-error" className="text-red-500 text-xs mt-1" role="alert">
                   {errors.intakeId}
-                </div>
-              )}
-            </div>
-
-            {/* Topic Name */}
-            <div>
-              <label htmlFor="topicName" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Topic Name <span className="text-red-500" aria-label="required">*</span>
-              </label>
-              <input
-                id="topicName"
-                name="topicName"
-                type="text"
-                value={form.topicName}
-                onChange={handleChange}
-                onBlur={handleBlur}
-                className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isDarkMode
-                    ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
-                    : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
-                } ${errors.topicName ? 'border-red-500' : ''}`}
-                aria-invalid={errors.topicName ? 'true' : 'false'}
-                aria-describedby={errors.topicName ? 'topicName-error' : undefined}
-                required
-              />
-              {errors.topicName && (
-                <div id="topicName-error" className="text-red-500 text-xs mt-1" role="alert">
-                  {errors.topicName}
                 </div>
               )}
             </div>
@@ -724,164 +662,250 @@ const OnboardForm = () => {
               )}
             </div>
 
-            {/* Role Name */}
-            <div className="md:col-span-2">
-              <div className="flex items-start gap-4">
-                <div className="flex-1">
-                  <label htmlFor="roleName" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Role Name {form.roleNameOverride && <span className="text-red-500" aria-label="required">*</span>}
-                  </label>
-                  <input
-                    id="roleName"
-                    name="roleName"
-                    type="text"
-                    value={form.roleName}
-                    onChange={handleChange}
-                    onBlur={handleBlur}
-                    disabled={!form.roleNameOverride}
-                    className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      isDarkMode
-                        ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700 disabled:opacity-50 disabled:cursor-not-allowed'
-                        : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed'
-                    } ${errors.roleName ? 'border-red-500' : ''}`}
-                    placeholder={form.roleNameOverride ? 'Enter role name' : 'Auto-generated from team name'}
-                    aria-invalid={errors.roleName ? 'true' : 'false'}
-                    aria-describedby={errors.roleName ? 'roleName-error' : undefined}
-                  />
-                  {errors.roleName && (
-                    <div id="roleName-error" className="text-red-500 text-xs mt-1" role="alert">
-                      {errors.roleName}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center mt-8">
-                  <input
-                    id="roleNameOverride"
-                    name="roleNameOverride"
-                    type="checkbox"
-                    checked={form.roleNameOverride}
-                    onChange={handleChange}
-                    className="w-4 h-4 focus:ring-2 focus:ring-blue-500 rounded"
-                  />
-                  <label htmlFor="roleNameOverride" className={`ml-2 text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                    Override
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Role ARNs - Environment-based */}
-            <div className="md:col-span-2">
-              <label className={`block mb-2 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Role ARN <span className="text-red-500" aria-label="required">*</span>
-              </label>
-              <div className="space-y-2">
-                {form.roleARNs.map((row, index) => {
-                  // Get used environments except for this row
-                  const usedEnvs = form.roleARNs.map((r, i) => i !== index ? r.env : null).filter(Boolean);
-                  const rowError = errors.roleARNsRows && errors.roleARNsRows[index];
-                  
-                  return (
-                    <div key={index} className="flex gap-2 items-start">
-                      <select
-                        className={`rounded-lg p-2.5 min-w-[120px] focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          isDarkMode
-                            ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
-                            : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
-                        } ${rowError ? 'border-red-500' : ''}`}
-                        value={row.env}
-                        onChange={(e) => handleRoleARNChange(index, 'env', e.target.value)}
-                        onBlur={() => handleRoleARNBlur(index)}
-                        required={index === 0}
-                        aria-label={`Environment ${index + 1}`}
-                        aria-invalid={rowError ? 'true' : 'false'}
-                      >
-                        <option value="">Select Env</option>
-                        {ENVIRONMENTS.map(env => (
-                          <option 
-                            key={env} 
-                            value={env} 
-                            disabled={usedEnvs.includes(env)}
-                          >
-                            {env}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="flex-1">
-                        <input
-                          type="text"
-                          value={row.arn}
-                          onChange={(e) => handleRoleARNChange(index, 'arn', e.target.value)}
-                          onBlur={() => handleRoleARNBlur(index)}
-                          className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isDarkMode
-                              ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
-                              : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
-                          } ${rowError ? 'border-red-500' : ''}`}
-                          placeholder={row.env ? `Enter ${row.env} ARN` : 'Select environment first'}
-                          disabled={!row.env}
-                          required={!!row.env}
-                          aria-label={`ARN for ${row.env || 'environment'} ${index + 1}`}
-                          aria-invalid={rowError ? 'true' : 'false'}
-                        />
-                        {rowError && (
-                          <div className="text-red-500 text-xs mt-1" role="alert">
-                            {rowError}
-                          </div>
-                        )}
-                      </div>
-                      {form.roleARNs.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeRoleARN(index)}
-                          className={`p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            isDarkMode
-                              ? 'bg-gray-700 hover:bg-gray-600 text-gray-100'
-                              : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
-                          }`}
-                          aria-label={`Remove Role ARN ${index + 1}`}
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              {errors.roleARNs && (
-                <div className="text-red-500 text-xs mt-1" role="alert">
-                  {errors.roleARNs}
-                </div>
-              )}
-            </div>
-
-            {/* Email Address */}
+            {/* App name (formerly Role Name) */}
             <div>
-              <label htmlFor="emailAddress" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                Email Address <span className="text-red-500" aria-label="required">*</span>
+              <label htmlFor="appname" className={`block mb-1 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                App name <span className="text-red-500" aria-label="required">*</span>
               </label>
               <input
-                id="emailAddress"
-                name="emailAddress"
-                type="email"
-                value={form.emailAddress}
+                id="appname"
+                name="appname"
+                type="text"
+                value={form.appname}
                 onChange={handleChange}
                 onBlur={handleBlur}
                 className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                   isDarkMode
                     ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
                     : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
-                } ${errors.emailAddress ? 'border-red-500' : ''}`}
-                placeholder="email@example.com"
-                aria-invalid={errors.emailAddress ? 'true' : 'false'}
-                aria-describedby={errors.emailAddress ? 'emailAddress-error' : undefined}
+                } ${errors.appname ? 'border-red-500' : ''}`}
+                placeholder="Enter app name"
+                aria-invalid={errors.appname ? 'true' : 'false'}
+                aria-describedby={errors.appname ? 'appname-error' : undefined}
                 required
               />
-              {errors.emailAddress && (
-                <div id="emailAddress-error" className="text-red-500 text-xs mt-1" role="alert">
-                  {errors.emailAddress}
+              {errors.appname && (
+                <div id="appname-error" className="text-red-500 text-xs mt-1" role="alert">
+                  {errors.appname}
                 </div>
               )}
+            </div>
+
+            {/* Environments: add via dropdown, then show topic/principals/read/write per selected env */}
+            <div className="md:col-span-2">
+              <label className={`block mb-2 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Environments <span className="text-red-500" aria-label="required">*</span>
+              </label>
+              <p className={`text-xs mb-3 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                Add an environment to configure topic name, principals (comma-separated ARNs), and Read/Write permission. At least one of Read or Write must be selected per environment.
+              </p>
+              {errors.environments && (
+                <div className="text-red-500 text-xs mb-2" role="alert">
+                  {errors.environments}
+                </div>
+              )}
+
+              {/* Add environment dropdown */}
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {(form.addedEnvironments || []).length >= ENVIRONMENTS.length ? (
+                  <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                    You have added all available environments. To change the list, remove an environment using the × button on its card, then add another from the dropdown if needed.
+                  </p>
+                ) : (
+                  <>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v) addEnvironment(v);
+                        e.target.value = '';
+                      }}
+                      className={`rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDarkMode
+                          ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                          : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                      }`}
+                      aria-label="Add environment"
+                    >
+                      <option value="">Add environment...</option>
+                      {ENVIRONMENTS.filter((envKey) => !(form.addedEnvironments || []).includes(envKey)).map((envKey) => (
+                        <option key={envKey} value={envKey}>
+                          {envKey}
+                        </option>
+                      ))}
+                    </select>
+                    {(form.addedEnvironments || []).length === 0 && (
+                      <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        Select an environment to configure
+                      </span>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Dynamic blocks for added environments only */}
+              <div className="space-y-4">
+                {(form.addedEnvironments || []).map((envKey) => {
+                  const env = form.environments[envKey] || emptyEnvConfig();
+                  const envError = errors[`env_${envKey}`];
+                  return (
+                    <div
+                      key={envKey}
+                      className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`font-medium ${isDarkMode ? 'text-gray-200' : 'text-gray-800'}`}>
+                          {envKey}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeEnvironment(envKey)}
+                          className={`p-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-200 text-gray-500'
+                          }`}
+                          aria-label={`Remove ${envKey} environment`}
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label className={`block mb-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Topic name <span className="text-red-500" aria-label="required">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={env.topic}
+                            onChange={(e) => handleEnvChange(envKey, 'topic', e.target.value)}
+                            className={`w-full rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              isDarkMode
+                                ? 'bg-gray-800 border-gray-700 text-gray-100'
+                                : 'bg-white border border-gray-300 text-gray-800'
+                            } ${errors[`env_${envKey}_topic`] ? 'border-red-500' : ''}`}
+                            placeholder={`Topic for ${envKey}`}
+                            aria-invalid={!!errors[`env_${envKey}_topic`]}
+                          />
+                          {errors[`env_${envKey}_topic`] && (
+                            <div className="text-red-500 text-xs mt-1" role="alert">
+                              {errors[`env_${envKey}_topic`]}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <label className={`block mb-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                            Principals (comma-separated ARNs) <span className="text-red-500" aria-label="required">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            value={env.principals}
+                            onChange={(e) => handleEnvChange(envKey, 'principals', e.target.value)}
+                            className={`w-full rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                              isDarkMode
+                                ? 'bg-gray-800 border-gray-700 text-gray-100'
+                                : 'bg-white border border-gray-300 text-gray-800'
+                            } ${errors[`env_${envKey}_principals`] ? 'border-red-500' : ''}`}
+                            placeholder="arn:aws:..., arn:aws:..."
+                            aria-invalid={!!errors[`env_${envKey}_principals`]}
+                          />
+                          {errors[`env_${envKey}_principals`] && (
+                            <div className="text-red-500 text-xs mt-1" role="alert">
+                              {errors[`env_${envKey}_principals`]}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-6">
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={env.read}
+                            onChange={(e) => handleEnvChange(envKey, 'read', e.target.checked)}
+                            className="w-4 h-4 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Read</span>
+                        </label>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={env.write}
+                            onChange={(e) => handleEnvChange(envKey, 'write', e.target.checked)}
+                            className="w-4 h-4 rounded focus:ring-2 focus:ring-blue-500"
+                          />
+                          <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Write</span>
+                        </label>
+                        <span className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                          (at least one required)
+                        </span>
+                      </div>
+                      {envError && (
+                        <div className="text-red-500 text-xs mt-1" role="alert">
+                          {envError}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Multiple emails */}
+            <div className="md:col-span-2">
+              <label className={`block mb-2 font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                Email addresses <span className="text-red-500" aria-label="required">*</span>
+              </label>
+              {errors.emails && (
+                <div className="text-red-500 text-xs mb-2" role="alert">
+                  {errors.emails}
+                </div>
+              )}
+              <div className="space-y-2">
+                {(form.emails || ['']).map((email, index) => (
+                  <div key={index} className="flex gap-2 items-start">
+                    <div className="flex-1">
+                      <input
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmailAt(index, e.target.value)}
+                        onBlur={(e) => {
+                          setTouched((prev) => ({ ...prev, [`email_${index}`]: true }));
+                          validateField(`email_${index}`, e.target.value);
+                        }}
+                        className={`w-full rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          isDarkMode
+                            ? 'bg-gray-800 border-gray-700 text-gray-100 focus:ring-blue-700'
+                            : 'bg-white text-gray-800 border border-gray-300 focus:ring-blue-500'
+                        } ${errors[`email_${index}`] ? 'border-red-500' : ''}`}
+                        placeholder="email@example.com"
+                        aria-invalid={errors[`email_${index}`] ? 'true' : 'false'}
+                      />
+                      {errors[`email_${index}`] && (
+                        <div className="text-red-500 text-xs mt-1" role="alert">
+                          {errors[`email_${index}`]}
+                        </div>
+                      )}
+                    </div>
+                    {(form.emails || []).length > 1 ? (
+                      <button
+                        type="button"
+                        onClick={() => removeEmail(index)}
+                        className={`p-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 shrink-0 ${
+                          isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-100' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                        }`}
+                        aria-label={`Remove email ${index + 1}`}
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+                    ) : null}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={addEmail}
+                  className={`text-sm font-medium ${isDarkMode ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'}`}
+                >
+                  + Add another email
+                </button>
+              </div>
             </div>
           </div>
 
@@ -900,13 +924,14 @@ const OnboardForm = () => {
             </button>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !isFormValid}
               className={`px-6 py-2.5 rounded-lg font-medium shadow transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                 isDarkMode
-                  ? 'bg-blue-800 hover:bg-blue-700 text-white disabled:opacity-50'
-                  : 'bg-blue-900 hover:bg-blue-950 text-white disabled:opacity-50'
+                  ? 'bg-blue-800 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                  : 'bg-blue-900 hover:bg-blue-950 text-white disabled:opacity-50 disabled:cursor-not-allowed'
               }`}
               aria-label={isEditMode ? 'Update onboarding' : 'Submit onboarding'}
+              title={!isFormValid ? 'Complete all required fields to enable Submit' : undefined}
             >
               {loading ? 'Submitting...' : isEditMode ? 'Update' : 'Submit'}
             </button>
