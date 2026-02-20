@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
       'process.env.NODE_ENV': JSON.stringify(mode)
     },
     server: {
-      port: 5173,
+      port: 5174,
       host: true,
       open: true, // Automatically open browser on server start
       cors: true, // Enable CORS

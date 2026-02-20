@@ -3,6 +3,7 @@ import Sidebar from './Sidebar';
 import Header from './Header';
 import Footer from './Footer';
 import BackToTop from './BackToTop';
+import FulcrumAIChatFab from './FulcrumAIChatFab';
 import { useTheme } from '../hooks/ThemeContext';
 
 const Layout = ({ children }) => {
@@ -34,6 +35,7 @@ const Layout = ({ children }) => {
         </div>
       </div>
       <Footer />
+      <FulcrumAIChatFab />
       <BackToTop mainRef={mainRef} />
     </div>
   );
